@@ -1,0 +1,3048 @@
+
+//function associated with Manual Assessment button
+
+function ManualAssessment()
+{
+  var ss= SpreadsheetApp.getActiveSpreadsheet();
+  try
+  {
+    var manualsheet= ss.getSheetByName("Add Manual Wizard").activate();
+  }
+  catch(e)
+  {
+    var manualsheet= ss.insertSheet("Add Manual Wizard").activate();
+  }
+  
+  var s1= ss.getSheetByName("Assessment Schedule");
+  var s2= ss.getSheetByName("Indicators");
+  var s3= ss.getSheetByName("Roster and Tracker");
+  var s4= ss.getSheetByName("Reporting");
+
+  var manualapp= UiApp.createApplication().setTitle("Add Manual Wizard").setWidth(1024).setHeight(768);
+  var manualpanel= manualapp.createGrid().setId("manualpanel");
+
+  //now deciding size of grid which is x+9,2 where x is number of tags
+  //now finding number of tags
+  
+  var tags = getFirstEmptyRowTags();
+  var x= tags-2;
+  ScriptProperties.setProperty("numtags", x);
+  
+  manualpanel.resize(x+9, 3);
+  
+  //var label=manualapp.createLabel(tags);
+  //manualpanel.setWidget(0, 0, label);
+ 
+    
+  //declaring all texts in 1st ui  
+  manualpanel.setText(0, 0, "Step 1: Assessment Information");
+  manualpanel.setText(2, 0, "Date Assessment was Delivered(Optional)");  
+  manualpanel.setText(3, 0, "Name of Assessment");
+  manualpanel.setText(4, 0, "Unit");
+  manualpanel.setText(5, 0, "Tags");
+  manualpanel.setText(x+5, 0, "Indicators being Assessed");
+  manualpanel.setText(x+6, 0, "Mastery Scale- Lowest Score possible");
+  manualpanel.setText(x+7, 0, "Mastery Scale- Highest Score possible");
+    
+  
+  //datebox date of assignment code here
+
+  /*to access this date we may not need a handler but in case of next handler we can access it 
+by simply calling e.parameter.datebox and use it."
+   */
+  var datebox= manualapp.createDateBox().setId("datebox").setName("datebox").setFormat(UiApp.DateTimeFormat.DATE_SHORT);
+  
+  manualpanel.setWidget(2, 1, datebox);
+  
+  //textbox name code here
+  //can be access by e.parameter.name 
+  var name= manualapp.createTextBox().setName("name").setId("name");
+  manualpanel.setWidget(3, 1, name);
+  
+//listbox unit code here
+//can be access by e.parameter.unit
+  
+  var unit = manualapp.createListBox().setId("unit").setName("unit");
+  var unitcolumn = getFirstEmptyRowUnits();
+  var noofunits= unitcolumn-2;
+     
+  ScriptProperties.setProperty("numunits", noofunits);
+  
+  for(i=0;i<noofunits;i++)
+  {
+    var c= i+3;
+    unit.addItem(s2.getRange("G"+c).getValue());
+    
+  }
+  manualpanel.setWidget(4, 1, unit);
+  
+  
+  
+  //checkbox tags code here
+  //checkbox id starts from ch1 to chx
+  var valuex = manualapp.createTextBox().setName(valuex).setId(valuex).setVisible(false).setText(x).setValue(x);
+  manualpanel.setWidget(4, 2, valuex);
+  for(i=1;i<=x;i++)
+  {
+    var d= i+2;
+    var tag= manualapp.createCheckBox(s2.getRange("I"+d).getValue()).setId("tag"+i).setName("tag"+i).setTag(s2.getRange("I"+d).getValue());
+    tag.setHTML(tag.getTag());;
+    
+    manualpanel.setWidget(i+4, 1, tag);
+    
+    
+  }
+  
+  
+  
+//scrollpanel indicators code here
+  
+  var tree= manualapp.createTree().setId("tree").setAnimationEnabled(true);
+  var y=getFirstEmptyRowIndicators();
+  var noofindicators= y-2;
+  ScriptProperties.setProperty("numindicators", noofindicators);
+ 
+  var sbhandler= manualapp.createServerHandler("sbhandlerfunction");
+  
+  for(i=1;i<=noofindicators; i++)
+  {
+    var a= i+2;
+    var b=a+1;
+    
+    //this is when there are no strands only corresponding indicators
+    if(s2.getRange("A"+a).getValue()=="")
+    {
+      var cb = manualapp.createCheckBox(s2.getRange("B"+a).getValue()).setId("indicator"+i).setName("indicator"+i);
+      var treeitemcb = manualapp.createTreeItem(cb);
+      tree.addItem(treeitemcb);
+    }
+    
+    else
+    {
+      var sb = manualapp.createCheckBox(s2.getRange("A"+a).getValue()).setId("strand"+i).setName("strand"+i).addValueChangeHandler(sbhandler);
+      var treeitemsb = manualapp.createTreeItem(sb);
+      
+      var cb = manualapp.createCheckBox(s2.getRange("B"+a).getValue()).setId("indicator"+i).setName("indicator"+i);
+      var treeitemcb = manualapp.createTreeItem(cb);
+      sbhandler.addCallbackElement(sb).addCallbackElement(cb);  
+      treeitemsb.addItem(treeitemcb);
+      
+      while((s2.getRange("A"+a).getValue())==(s2.getRange("A"+b).getValue()))
+        
+      {
+        a++;
+        i++;
+        b++;
+        
+        var cb = manualapp.createCheckBox(s2.getRange("B"+a).getValue()).setId("indicator"+i).setName("indicator"+i);
+        var treeitemcb = manualapp.createTreeItem(cb);
+        
+        treeitemsb.addItem(treeitemcb);
+        sbhandler.addCallbackElement(cb);
+      }
+      tree.addItem(treeitemsb);
+    }
+  }
+  
+ 
+  
+  var scrollpanel = manualapp.createScrollPanel(tree).setAlwaysShowScrollBars(true).setWidth("300").setHeight("150").setId("scrollpanel");
+    
+  manualpanel.setWidget(x+5, 1, scrollpanel);
+  
+ 
+  
+  
+  
+  //lowest and highest textbox code here
+  
+  var lowscore= manualapp.createTextBox().setName("lowscore").setId("lowscore");
+  manualpanel.setWidget(x+6, 1, lowscore);
+  var highscore= manualapp.createTextBox().setName("highscore").setId("highscore");
+  manualpanel.setWidget(x+7, 1, highscore);
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  //nextbutton code here 
+  var nexthandler= manualapp.createServerClickHandler('next1function');
+  nexthandler.addCallbackElement(manualpanel);
+  
+  
+  var nextbutton = manualapp.createButton("Next");
+  manualpanel.setWidget(x+8, 2, nextbutton);
+ 
+  
+  
+  nextbutton.addClickHandler(nexthandler);
+  
+  manualapp.add(manualpanel);
+ 
+  
+  ss.show(manualapp);
+  return manualapp;
+}
+
+
+function sbhandlerfunction(e)
+{
+  var manualapp= UiApp.getActiveApplication();
+  var manualpanel = manualapp.getElementById("manualpanel");
+  var sb = manualapp.getElementById(e.parameter.source);
+  var j = e.parameter.source.charAt(6);
+  var i= parseInt(j, 10);
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var s2 = ss.getSheetByName("Indicators");  
+  var value = e.parameter[e.parameter.source];
+  //manualapp.add(manualapp.createLabel("id: "+e.parameter.source+ " i: "+i+" value: "+e.parameter[e.parameter.source]));
+  var cb = manualapp.getElementById("indicator"+i);  
+  //cb.setValue(true);
+  var a= i+2;
+  var b=a+1;
+  if(value == "true")
+  {
+    //  manualapp.add(manualapp.createLabel("raghav"));
+    cb.setValue(true);
+    
+    //   manualapp.add(manualapp.createLabel(s2.getRange("A"+a).getValue()));
+    // manualapp.add(manualapp.createLabel(s2.getRange("A"+b).getValue()));
+       
+    while((s2.getRange("A"+a).getValue())==(s2.getRange("A"+b).getValue()))
+    {
+      //manualapp.add(manualapp.createLabel("lol"));
+      //a++;
+      i++;
+      b++;    
+      var cb = manualapp.getElementById("indicator"+i);
+      cb.setValue(true); 
+    } 
+    //but problem is how to get that value of i
+    //then declare your treeitems and use setvalue function
+    //and in else loop set those values to false
+ 
+  }
+  else
+  {
+    //a++;
+    cb.setValue(false);
+    i++;
+    b++;    
+    var cb = manualapp.getElementById("indicator"+i);
+    cb.setValue(false); 
+  }
+  
+  return manualapp;
+}
+
+
+
+
+
+function backfunction(e)
+{
+  ManualAssessment();
+}
+
+
+
+
+
+
+
+
+
+function next1function(e)
+{
+  var manualapp= UiApp.getActiveApplication();
+  var ss= SpreadsheetApp.getActiveSpreadsheet();
+  var s2= ss.getSheetByName("Indicators");
+  var manualpanel = manualapp.getElementById("manualpanel");
+  ScriptProperties.setProperty("dd",e.parameter.datebox);
+  //manualpanel.clear();
+  ScriptProperties.setProperty("a", 1);
+  var f = ScriptProperties.getProperty("a");
+  var a = parseInt(f,10);
+  ScriptProperties.setProperty("data", "{");
+  var checked = 0;
+  
+  //declaring these widgets so that they can be used in later function
+  
+  var datebox = manualapp.getElementById("datebox");
+  var name = manualapp.getElementById("name");
+  var unit = manualapp.getElementById("unit");
+  var lowscore = manualapp.getElementById("lowscore");
+  var highscore = manualapp.getElementById("lowscore"); 
+  ScriptProperties.setProperty("low",e.parameter.lowscore);  
+  ScriptProperties.setProperty("high",e.parameter.highscore); 
+  var addquehandler= manualapp.createServerClickHandler('addquefunction');
+  var next2handler= manualapp.createServerClickHandler('next2function');
+  
+  //x is no of tags , for purpose of forwarding ahead
+  
+  //var x= getFirstEmptyRowTags()-2;
+  var y = ScriptProperties.getProperty("numtags");
+  var x= parseInt(y,10);
+  for(i=1;i<=x;i++)
+  {
+    var d= i+2;
+    var tag= manualapp.getElementById("tag"+i);
+    addquehandler.addCallbackElement(tag);
+    next2handler.addCallbackElement(tag);
+    
+  }
+    
+    
+    
+    
+    
+  // to find number of checked indicators, for purspose of building UI
+  
+  //var noofindicators = getFirstEmptyRowIndicators()-2; 
+  var temp = ScriptProperties.getProperty("numindicators");
+  var noofindicators= parseInt(temp, 10);
+  
+  for(i=1;i<=noofindicators;i++)
+  {
+    if(e.parameter["indicator"+i]=="true")
+    {
+      checked++;
+    }
+  }
+  ScriptProperties.setProperty("numchecked", checked);
+  
+  manualpanel.resize (checked+3,3);
+  manualpanel.clear();
+  
+  //below has been used for passing value of checked indicators only, checked is no of checked indicators in UI1
+  /*  
+var check = manualapp.createTextBox().setId("check").setName("check").setText(checked).setValue(checked).setVisible(false);
+manualpanel.setWidget(0,1, check);
+
+*/
+  
+  manualpanel.setText(0,0, "Step 2- Question Information");
+  manualpanel.setText(1,0, "Question "+a+" indicators");
+  var r = 1;
+  ScriptProperties.setProperty("jsonindicator", "{");
+  var jsonindicator = ScriptProperties.getProperty("jsonindicator");
+  for(i=1;i<=noofindicators;i++)
+  {
+    if(e.parameter["indicator" + i] == "true")
+    {
+    
+      var v= i+2;
+      var indi = manualapp.createCheckBox(s2.getRange("B"+v).getValue()).setId("indi"+r).setName("indi"+r).setTag(s2.getRange("B"+v).getValue());
+      indi.setHTML(indi.getTag());  
+      if(r==1)
+      {
+        jsonindicator = jsonindicator + "\""+r+"\":\"" +s2.getRange("B"+v).getValue()+"\"";
+      }
+      else
+      {
+        jsonindicator = jsonindicator + ",\""+r+"\":\"" +s2.getRange("B"+v).getValue()+"\"";
+      }
+      manualpanel.setWidget(r+1,0,indi);
+      r++;
+    }
+  }
+  jsonindicator =jsonindicator+ "}";
+  ScriptProperties.setProperty("jsonindicator", jsonindicator);
+  
+  // for later use declarations
+  addquehandler.addCallbackElement(manualpanel);
+  addquehandler.addCallbackElement(datebox);
+  addquehandler.addCallbackElement(name);
+  addquehandler.addCallbackElement(unit);
+  
+  var addque = manualapp.createButton("Add Another Question");
+  addque.addClickHandler(addquehandler);
+  
+  manualpanel.setWidget(r+1,0, addque);
+  
+  //backbutton code here 
+  
+  var backhandler= manualapp.createServerClickHandler('backfunction');
+  backhandler.addCallbackElement(manualpanel);
+  var backbutton = manualapp.createButton("Back");
+  manualpanel.setWidget(r+1, 2, backbutton);
+  backbutton.addClickHandler(backhandler);
+  
+  
+  
+  
+  
+  //callback elements for next2handler
+  next2handler.addCallbackElement(manualpanel);
+  next2handler.addCallbackElement(datebox);
+  next2handler.addCallbackElement(name);
+  next2handler.addCallbackElement(unit);
+  var next2button = manualapp.createButton("Next");
+  next2button.addClickHandler(next2handler);
+  
+  manualpanel.setWidget(r+1,1, next2button);
+  
+  manualapp.add(manualpanel);
+  
+  return manualapp;
+  
+  
+}
+
+
+
+
+
+
+// UI that will be called when Someone clicks on add another Question
+
+
+function addquefunction(e)
+{
+  var manualapp= UiApp.getActiveApplication();
+  var ss= SpreadsheetApp.getActiveSpreadsheet();
+  var s2= ss.getSheetByName("Indicators");
+  var manualpanel = manualapp.getElementById("manualpanel");
+  manualpanel.clear();
+  manualpanel.setText(0,0, "Step 2- Question Information");
+
+  
+  //for forwading these values
+  var datebox = manualapp.getElementById("datebox");
+  var name = manualapp.getElementById("name");
+  var unit = manualapp.getElementById("unit");
+  var lowscore = manualapp.getElementById("lowscore");
+  var highscore = manualapp.getElementById("lowscore"); 
+  
+  //for tacking question number, now a is question number here
+  var b= ScriptProperties.getProperty("a");
+  var a = parseInt(b,10);
+  
+  //creating label
+  a++;
+  ScriptProperties.setProperty("a", a); 
+  manualpanel.setText(1,0, "Question "+a+ " indicators");
+
+  
+  // this is number of checked indicators
+  //var checked = e.parameter.check;
+  
+  var tempx = ScriptProperties.getProperty("numchecked");
+  var checked = parseInt(tempx, 10);
+  
+  
+  
+  var addquehandler= manualapp.createServerClickHandler('addquefunction');
+  var next2handler= manualapp.createServerClickHandler('next2function');
+  
+  // for purpose of forwarding these tags ahead
+  //var x= getFirstEmptyRowTags()-2;
+  var temp1 = ScriptProperties.getProperty("numtags");
+  var x= parseInt(temp1, 10);
+  
+  
+  for(i=1;i<=x;i++)
+  {
+    var d= i+2;
+    var tag= manualapp.getElementById("tag"+i);
+    addquehandler.addCallbackElement(tag);
+    next2handler.addCallbackElement(tag);
+  }
+    
+  var data= ScriptProperties.getProperty("data");
+  
+     
+  // for creating check boxes again
+  data = data+"\""+(a-1)+"\":[";
+  for(i=1;i<=checked;i++)
+  {
+    var indi = manualapp.createCheckBox(e.parameter["indi"+i+"_tag"]).setId("indi"+i).setName("indi"+i).setTag(e.parameter["indi"+i+"_tag"]);
+   //storing value of old indicators
+    if(i==1)
+    {
+      data = data+ ("\""+e.parameter["indi"+i]+"\"");
+    }
+    else
+    {
+      data = data+ (",\""+e.parameter["indi"+i]+"\"");
+    }
+    
+    indi.setHTML(indi.getTag());
+    manualpanel.setWidget(i+1,0,indi);
+    addquehandler.addCallbackElement(indi);
+    next2handler.addCallbackElement(indi); 
+  }
+  data= data+ "],";
+  ScriptProperties.setProperty("data", data);
+  
+  
+  
+  addquehandler.addCallbackElement(manualpanel);
+  addquehandler.addCallbackElement(datebox);
+  addquehandler.addCallbackElement(unit);
+  addquehandler.addCallbackElement(name);
+  
+  var addque = manualapp.createButton("Add Another Question");
+  addque.addClickHandler(addquehandler);
+  
+  manualpanel.setWidget(i+1,0, addque);
+  
+  next2handler.addCallbackElement(manualpanel);
+  next2handler.addCallbackElement(datebox);
+  next2handler.addCallbackElement(name);
+  next2handler.addCallbackElement(unit);
+  
+    
+  
+  var spinner = manualapp.createImage('http://2.bp.blogspot.com/-PEBs-e8TLjw/UDBXHxy6v8I/AAAAAAAAANA/7EsfVtylA5s/s1600/ajax-loader+(2).gif')
+      .setVisible(false)
+      .setId('spinner');
+  manualapp.add(spinner);
+  
+  var loadSpinner = manualapp.createClientHandler()
+      .forTargets(spinner)
+      .setVisible(true);
+  
+  
+  
+  var next2 = manualapp.createButton("Next");
+  next2.addClickHandler(next2handler).addMouseUpHandler(loadSpinner);
+  
+  manualpanel.setWidget(i+1,2, next2);
+  
+  return manualapp;
+}
+
+
+function next2function(e)
+{
+    //declarartion part
+  var manualapp= UiApp.getActiveApplication();
+  var ss= SpreadsheetApp.getActiveSpreadsheet();
+  var s1= ss.getSheetByName("Assessment Schedule");
+  var s2= ss.getSheetByName("Indicators");
+  var s3= ss.getSheetByName("Roster and Tracker");
+  var manualpanel = manualapp.getElementById("manualpanel");
+  manualpanel.clear();
+  
+  var temp = ScriptProperties.getProperty("numtags");
+  var x= parseInt(temp, 10);
+  
+  var str=" ";
+  for(i=1;i<=x;i++)
+  {
+    var d= i+2;
+    var tag= manualapp.getElementById("tag"+i);
+    
+   if( e.parameter["tag"+i] == "true")
+   {
+     str = str + " ,"+ e.parameter["tag"+i+"_tag"];
+  
+   }
+  }    
+  //now str stores associated tags
+  
+  
+  var datebox = manualapp.getElementById("datebox");
+  var name= manualapp.getElementById("name");
+  var lowscore = manualapp.getElementById("lowscore");
+  var highscore = manualapp.getElementById("lowscore"); 
+  var lastrow=s1.getLastRow()+1;
+  
+ 
+  
+  //CREATING ADD MANUAL ASSESSMENT TAB
+ /* try{
+  var dd = e.parameter.datebox;
+  }
+  catch(e)
+  {
+    var dd = "";
+  }
+*/
+  var unformatted= ScriptProperties.getProperty("dd");
+ if(unformatted=="")
+ {
+   var newmanual = ss.insertSheet(e.parameter.name+" Assessment");
+ s1.getRange("A"+lastrow).setValue("");
+ }
+  else
+  {
+    var date1= new Date(unformatted);
+    var dd= Utilities.formatDate(date1,"GMT","MM/dd/yy");
+    try{
+    var newmanual = ss.insertSheet(dd+" Assessment").activate();
+    }
+    catch(e){
+    var newmanual = ss.insertSheet().activate();
+    }
+    s1.getRange("A"+lastrow).setValue(dd);
+  }
+  
+    s1.getRange("F"+lastrow).setValue(ss.getUrl()+"#gid="+newmanual.getSheetId());
+  
+  //UPDATING ASSESSMENT SCHEDULE
+  
+ 
+  s1.getRange("B"+lastrow).setValue(e.parameter.name);
+  s1.getRange("C"+lastrow).setValue("Manually Graded");
+  s1.getRange("D"+lastrow).setValue(e.parameter.unit);
+  s1.getRange("E"+lastrow).setValue(str);
+  
+ 
+  
+  
+  //updating created sheet
+  var sheetname = newmanual.getSheetName();
+  ScriptProperties.setProperty("sheetname", sheetname);
+  
+  var r1= newmanual.getRange(1, 1, 1, 3).merge().setBackgroundColor("Black").setFontColor("White").setValue(e.parameter.name);
+  
+  newmanual.getRange("A3").setValue("OSIS");
+  newmanual.getRange("B3").setValue("FIRST NAME");
+  newmanual.getRange("C3").setValue("LAST NAME");
+  newmanual.getRange("D3").setValue("FULL NAME");
+  newmanual.getRange("E3").setValue("CLASS");
+  newmanual.getRange("F3").setValue("GROUP");
+  
+   
+  var range = s3.getRange("A8:F"+s3.getLastRow());
+  var osisobject = getRowsData(s3 , range);
+  var numColumns = range.getEndRow() - range.getRow() + 1;
+  
+  for( i=1; i<=numColumns; i++)
+  {
+    newmanual.getRange("a"+(i+3)).setValue(osisobject[i-1].osis);
+        
+    newmanual.getRange("b"+(i+3)).setValue(osisobject[i-1].firstName);
+        
+    newmanual.getRange("c"+(i+3)).setValue(osisobject[i-1].lastName);
+    
+    newmanual.getRange("d"+(i+3)).setValue(osisobject[i-1].fullName);
+    
+    newmanual.getRange("e"+(i+3)).setValue(osisobject[i-1].class);
+    
+    newmanual.getRange("f"+(i+3)).setValue(osisobject[i-1].group);
+  }
+  
+  var b= ScriptProperties.getProperty("a");
+  var a = parseInt(b,10);
+  
+  
+  var check= ScriptProperties.getProperty("numchecked");
+  var checked= parseInt(check, 10);
+  var data = ScriptProperties.getProperty("data");
+  data= data+"\""+a+"\":[";
+  
+  for(i=1;i<=checked;i++)
+  {
+    if(i==1)
+    {
+      data = data+ ("\""+e.parameter["indi"+i]+"\"");
+    }
+    else
+    {
+      data = data+ (",\""+e.parameter["indi"+i]+"\"");
+    }
+  }
+  data = data + "]}";
+  ScriptProperties.setProperty("data",data);
+  
+  
+  //now using this 
+  var data = ScriptProperties.getProperty("data");
+
+  var object = JSON.parse(removeNL(data));
+  
+  var jsonindicator = ScriptProperties.getProperty("jsonindicator");
+   
+  
+  var indiobject = JSON.parse(removeNL(jsonindicator));
+  
+  
+  //newmanual.getRange("A11").setValue(jsonindicator);
+  //newmanual.getRange("B11").setValue(data); 
+  
+  
+  try{
+  for (var i in object) 
+  {
+    for( j=0; j<checked; j++)
+    {
+      
+      if(object[i][j] == "true")
+      {
+        
+        newmanual.getRange(2, newmanual.getLastColumn()+1).setValue("Q"+i);
+        newmanual.getRange(3, newmanual.getLastColumn()).setValue(indiobject[j+1]).setBackgroundColor("Blue").setFontColor("White");
+        
+      }
+    }
+  }
+  
+  ScriptProperties.setProperty("blackcolumn", newmanual.getLastColumn()+2);
+  
+  var xy = newmanual.getLastColumn()+2;
+
+    newmanual.getRange(1, newmanual.getLastColumn()+2, 20).setBackgroundColor("Black");
+
+    //getting last column value
+ 
+    var lastcol = newmanual.getLastColumn();
+  
+  for(var i in indiobject)
+  {
+    var count=0;
+    for(k=7; k< xy-1 ; k++)
+    {
+      if( newmanual.getRange(3,k).getValue() == indiobject[i])
+      {
+        count++;
+     }
+      
+    }
+    
+    newmanual.getRange(2, lastcol+4).setValue(count);
+    
+    newmanual.getRange(3, lastcol+4).setValue(indiobject[i]).setBackgroundColor("Blue").setFontColor("White");
+    
+    //updating roster and tracker
+    s3.getRange(6, s3.getLastColumn()+1).setValue(count).setBackgroundColor("Blue").setFontColor("White");  
+    
+    s3.getRange(5, s3.getLastColumn()).setValue(indiobject[i]).setBackgroundColor("Blue").setFontColor("White");
+    
+    s3.getRange(4, s3.getLastColumn()).setValue(dd).setBackgroundColor("Blue").setFontColor("White");
+    
+    s3.getRange(3, s3.getLastColumn()).setValue(e.parameter.name).setBackgroundColor("Blue").setFontColor("White");
+    
+    s3.getRange(2, s3.getLastColumn()).setValue(e.parameter.unit).setBackgroundColor("Blue").setFontColor("White");
+    
+    s3.getRange(1, s3.getLastColumn()).setValue(str).setBackgroundColor("Blue").setFontColor("White");
+    
+    lastcol++;
+  }
+  
+  return manualapp.close();
+  }
+  catch(e)
+  {
+    //Browser.msgBox("Error");
+  return manualapp.close();
+  }
+}
+
+
+
+
+
+function CSVAssessment()
+{
+  var ss= SpreadsheetApp.getActiveSpreadsheet();
+  try{
+    var csvsheet= ss.getSheetByName("Import Data Wizard").activate();
+  }
+  catch(e){
+    var csvsheet= ss.insertSheet("Import Data Wizard").activate();
+  }
+  
+  var s1= ss.getSheetByName("Assessment Schedule");
+  var s2= ss.getSheetByName("Indicators");
+  var s3= ss.getSheetByName("Roster and Tracker");
+  var s4= ss.getSheetByName("Reporting");
+  
+  var tags = getFirstEmptyRowTags()-2;
+  ScriptProperties.setProperty("numtag", tags);
+  
+  var app = UiApp.createApplication().setTitle("CSV Upload Wizard").setWidth(1024).setHeight(768);
+  var formContent = app.createGrid(20,3);
+  formContent.setWidget(0, 0, app.createLabel("Step 1- Assessment Information"));
+  formContent.setWidget(1, 0, app.createLabel("Date Assessment was Delivered:"));
+  formContent.setWidget(2, 0, app.createLabel("Name of Assessment:"));
+  formContent.setWidget(3, 0, app.createLabel("Units"));
+  formContent.setWidget(4, 0, app.createLabel("Tags:"));
+  formContent.setWidget(4+tags, 0, app.createLabel("Indicators being Assessed:"));
+  formContent.setWidget(5+tags, 0, app.createLabel("Start Cell Correct Answer:"));
+  formContent.setWidget(6+tags, 0, app.createLabel("End Cell Correct Answer:"));
+  formContent.setWidget(7+tags, 0, app.createLabel("Column Letter of Student Identifier:"));
+  formContent.setWidget(8+tags, 0, app.createLabel("Row of first student:"));
+  formContent.setWidget(9+tags, 0, app.createLabel("Column Letter of first question:"));
+  formContent.setWidget(10+tags, 0, app.createLabel("Total Questions:"));
+  formContent.setWidget(11+tags, 0, app.createLabel("CSV Data File:"));
+  
+  
+  var spinner = app.createImage('http://2.bp.blogspot.com/-PEBs-e8TLjw/UDBXHxy6v8I/AAAAAAAAANA/7EsfVtylA5s/s1600/ajax-loader+(2).gif')
+            .setVisible(false)
+            .setId('spinner');
+  formContent.setWidget(0, 1, spinner);
+  
+  var loadSpinner = app.createClientHandler()
+      .forTargets(spinner)
+      .setVisible(true);
+  
+  var submith = app.createServerHandler("submitf");
+  
+  formContent.setWidget(11+tags,2,app.createSubmitButton().setText("Next").addClickHandler(submith).addMouseUpHandler(loadSpinner));
+  
+ 
+  // Declaring Widgets
+  //date
+  var datechange = app.createServerHandler("datechange");
+  var datebox= app.createDateBox().setId("datebox").setName("datebox").setFormat(UiApp.DateTimeFormat.DATE_SHORT).addValueChangeHandler(datechange);
+  datechange.addCallbackElement(datebox);
+  
+  formContent.setWidget(1, 1, datebox);
+  
+  //name
+  var name= app.createTextBox().setName("name").setId("name");
+  formContent.setWidget(2, 1, name);
+  
+  //unit
+  var unit = app.createListBox().setId("unit").setName("unit");
+  var unitcolumn = getFirstEmptyRowUnits();
+  var noofunits= unitcolumn-2;
+  
+  ScriptProperties.setProperty("numunits", noofunits);
+  
+  for(i=0;i<noofunits;i++)
+      {
+        var c= i+3;
+        unit.addItem(s2.getRange("G"+c).getValue());
+        
+      }
+  formContent.setWidget(3, 1, unit);
+  
+  
+  //tags
+  var y= ScriptProperties.getProperty("numtags");
+  var x= parseInt(y,10);
+  
+  for(i=1;i<=x;i++)
+  {
+    var d= i+2;
+    var tag= app.createCheckBox(s2.getRange("I"+d).getValue()).setId("tag"+i).setName("tag"+i).setTag(s2.getRange("I"+d).getValue());
+    tag.setHTML(tag.getTag());;
+    
+    formContent.setWidget(i+3, 1, tag); 
+  }
+  
+  //indicators
+  //scrollpanel indicators
+  var tree= app.createTree().setId("tree").setAnimationEnabled(true);
+  var y=getFirstEmptyRowIndicators();
+  var noofindicators= y-2;
+  ScriptProperties.setProperty("numindicators", noofindicators);
+ 
+  var sbhandler= app.createServerHandler("sbhandlerfunction");
+  
+  
+  for(i=1;i<=noofindicators; i++)
+  {
+    var a= i+2;
+    var b=a+1;
+  
+    //this is when there are no strands only corresponding indicators
+    if(s2.getRange("A"+a).getValue()=="")
+    {
+      var cb = app.createCheckBox(s2.getRange("B"+a).getValue()).setId("indicator"+i).setName("indicator"+i);
+      var treeitemcb = app.createTreeItem(cb);
+      tree.addItem(treeitemcb);
+    }
+    
+    else
+    {
+      var sb = app.createCheckBox(s2.getRange("A"+a).getValue()).setId("strand"+i).setName("strand"+i).addValueChangeHandler(sbhandler);
+      var treeitemsb = app.createTreeItem(sb);
+      
+      var cb = app.createCheckBox(s2.getRange("B"+a).getValue()).setId("indicator"+i).setName("indicator"+i);
+      var treeitemcb = app.createTreeItem(cb);
+      sbhandler.addCallbackElement(sb).addCallbackElement(cb);  
+      treeitemsb.addItem(treeitemcb);
+  
+      while((s2.getRange("A"+a).getValue())==(s2.getRange("A"+b).getValue()))
+        
+      {
+        a++;
+        i++;
+        b++;
+        
+        var cb = app.createCheckBox(s2.getRange("B"+a).getValue()).setId("indicator"+i).setName("indicator"+i);
+        var treeitemcb = app.createTreeItem(cb);
+        
+        treeitemsb.addItem(treeitemcb);
+        sbhandler.addCallbackElement(cb);
+      }
+      tree.addItem(treeitemsb);
+    }
+  }
+  
+ 
+  
+  var scrollpanel = app.createScrollPanel(tree).setAlwaysShowScrollBars(true).setWidth("250").setHeight("150").setId("scrollpanel");
+  formContent.setWidget(tags+4, 1, scrollpanel);
+  //formContent.setWidget(tags+4, 2, tree);
+  
+  
+  
+  
+  //correct answer key start cell
+  var ckeystart= app.createTextBox().setName("ckeystart").setId("ckeystart");
+  formContent.setWidget(tags+5, 1, ckeystart);
+  
+   
+  //correct answer key end cell
+  var ckeyend= app.createTextBox().setName("ckeyend").setId("ckeyend");
+  formContent.setWidget(tags+6, 1, ckeyend);
+  
+  
+  //column # student identifier
+  var columnidentifier = app.createTextBox().setName("columnidentifier").setId("columnidentifier");
+  formContent.setWidget(tags+7, 1, columnidentifier);
+  
+  //Row # of first student
+  var rowstudent = app.createTextBox().setName("rowstudent").setId("rowstudent");
+  formContent.setWidget(tags+8, 1, rowstudent);
+  
+  //Column # of first question
+  var columnquestion = app.createTextBox().setName("columnquestion").setId("columnquestion");
+  formContent.setWidget(tags+9, 1, columnquestion);
+  
+  
+   //Total Questions
+  var numque = app.createTextBox().setName("numque").setId("numque");
+  formContent.setWidget(tags+10, 1, numque);
+  
+  //file upload
+  formContent.setWidget(tags+11, 1, app.createFileUpload().setName('thefile'));
+  var form = app.createFormPanel();
+  form.add(formContent);
+  submith.addCallbackElement(form);
+  app.add(form);
+  ss.show(app);
+  
+}
+
+
+function doPost(e) {
+   // data returned is a blob for FileUpload widget
+  var s2= SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Indicators");
+  var app = UiApp.getActiveApplication();
+  var fileBlob = e.parameter.thefile;
+  var doc = DocsList.createFile(fileBlob);
+  ScriptProperties.setProperty("filename", doc.getName());
+  
+  ScriptProperties.setProperty("name", e.parameter.name);
+  ScriptProperties.setProperty("unit", e.parameter.unit);
+  
+  var xtemp= ScriptProperties.getProperty("numtag");
+  var x= parseInt(xtemp,10);
+  var noofindicatorstemp = ScriptProperties.getProperty("numindicators");
+  var noofindicators= parseInt(noofindicatorstemp,10);
+  
+
+  ScriptProperties.setProperty("numque",e.parameter.numque);
+  ScriptProperties.setProperty("ckeystart",e.parameter.ckeystart);
+  ScriptProperties.setProperty("ckeyend",e.parameter.ckeyend);
+  ScriptProperties.setProperty("rowstudent",e.parameter.rowstudent);
+  ScriptProperties.setProperty("columnquestion",e.parameter.columnquestion);
+  ScriptProperties.setProperty("columnidentifier",e.parameter.columnidentifier);
+ 
+  importFromCSV();
+  //app.add(app.createVerticalPanel().add(listbox).add(app.createLabel(e.parameter.indicator1)).add(app.createLabel(e.parameter.indicator2)));
+   
+  
+  
+  
+  
+  //importFromCSV();
+  return app;
+}
+
+
+
+
+function datechange(e)
+{
+  var date = e.parameter.datebox;
+  ScriptProperties.setProperty("date", date);
+  
+}
+
+function submitf(e)
+{
+  //creating list box with selected indicators
+  var s2= SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Indicators");
+  var app = UiApp.getActiveApplication();
+  var num = e.parameter.numque;
+  
+  
+  var grid = app.createGrid(num+4, 4);
+  grid.setWidget(0, 0, app.createLabel("Step-2: Question Information"));
+  grid.setWidget(1, 1, app.createLabel("Indicator:"));
+  grid.setWidget(1, 2, app.createLabel("Question Type:"));
+  grid.setWidget(1, 3, app.createLabel("Total Possible Points:"));
+  var noofindicatorstemp = ScriptProperties.getProperty("numindicators");
+  var noofindicators= parseInt(noofindicatorstemp,10);
+  
+  var xtemp= ScriptProperties.getProperty("numtag");
+  var x= parseInt(xtemp,10);
+    // storing tags in script property 
+  var tags=" ";
+  for(i=1;i<=x;i++)
+  {
+    var d= i+2;
+    var tag= app.getElementById("tag"+i);
+    
+    if( e.parameter["tag"+i] == "true")
+    {
+      tags = tags + " ,"+ e.parameter["tag"+i+"_tag"];
+      
+    }
+  }
+  ScriptProperties.setProperty("tags", tags);
+  
+  
+  for(j=1;j<=num;j++)
+  {
+    var listbox = app.createListBox().setName("que"+j).setId("que"+j);
+    var type= app.createListBox().setName("type"+j).setId("type"+j).addItem("Multiple Choice").addItem("Constructed Response");
+    for(i=1;i<= noofindicators; i++)
+    {
+      
+      if(e.parameter["indicator" + i] == "true")
+      {
+        var v= i+2;
+        listbox.addItem(s2.getRange("B"+v).getValue());
+        
+      }
+    }
+    
+    grid.setWidget(j+1, 0, app.createLabel("Question "+j+" Indicators"));
+    grid.setWidget(j+1, 1, listbox); 
+    grid.setWidget(j+1, 2, type);
+    grid.setWidget(j+1, 3, app.createTextBox().setName("points"+j).setId("points"+j).setValue(1).setStyleAttribute("backgroundColor", "#99FFCC").setStyleAttribute("border", "1px solid #008000"));
+  }
+  
+  var r=1;
+  var presetindi= "{";
+  for(i=1;i<= noofindicators; i++)
+  {
+    
+    if(e.parameter["indicator" + i] == "true")
+    {
+      var v= i+2;
+      if(r==1)
+      {
+        presetindi = presetindi + "\"";
+        presetindi = presetindi + r;
+        presetindi = presetindi + "\":\"";
+        presetindi = presetindi + s2.getRange("B"+v).getValue();
+        presetindi = presetindi+ "\""; 
+      }
+      else
+      {
+        presetindi = presetindi + ",\"";
+        presetindi = presetindi + r;
+        presetindi = presetindi + "\":\"";
+        presetindi = presetindi + s2.getRange("B"+v).getValue();
+        presetindi = presetindi+ "\""; 
+      }
+      r++;
+    }
+  }
+  ScriptProperties.setProperty("presetindicount", r);
+  presetindi = presetindi + "}";
+  
+  
+  var spinner = app.createImage('http://2.bp.blogspot.com/-PEBs-e8TLjw/UDBXHxy6v8I/AAAAAAAAANA/7EsfVtylA5s/s1600/ajax-loader+(2).gif')
+      .setVisible(false)
+      .setId('spinner');
+  app.add(spinner);
+  
+  var loadSpinner = app.createClientHandler()
+      .forTargets(spinner)
+      .setVisible(true);
+  
+  ScriptProperties.setProperty("presetindi", presetindi);
+  
+  var csvnexth = app.createServerHandler("csvnext");
+  csvnexth.addCallbackElement(grid);
+  grid.setWidget(j+1, 0, app.createButton("next").addClickHandler(csvnexth).addMouseUpHandler(loadSpinner));
+  
+  grid.setId("grid");
+  var scrollpanel= app.createScrollPanel().setStyleAttribute('border', '1px solid black').setSize('1000', '500');
+  scrollpanel.add(grid);
+  app.add(scrollpanel);
+  return app;
+}
+
+
+
+
+function csvnext(e)
+{
+  var app= UiApp.getActiveApplication();
+  var ss= SpreadsheetApp.getActiveSpreadsheet();
+  //app.close();
+  //createPleaseWaitUI(ss.getActiveSheet(), "Loading", "Processing");
+  
+  var s1= ss.getSheetByName("Assessment Schedule");
+  var s2= ss.getSheetByName("Indicators");
+  var s3 = ss.getSheetByName("Roster and Tracker");
+  var s4= ss.getSheetByName("Reporting");
+  
+  
+  //update assessment schedule
+
+  var date = ScriptProperties.getProperty("date");
+  var name= ScriptProperties.getProperty("name");
+  var unit= ScriptProperties.getProperty("unit");
+  var str= ScriptProperties.getProperty("tags");
+  
+  var lastrow=s1.getLastRow()+1;
+  
+  
+  s1.getRange("B"+lastrow).setValue(name);
+  s1.getRange("C"+lastrow).setValue("CSV Import");
+  s1.getRange("D"+lastrow).setValue(unit);
+  s1.getRange("E"+lastrow).setValue(str);
+  
+  Utilities.sleep(500);
+  
+try{
+    var date2= new Date(date);
+    var dd= Utilities.formatDate(date2, "GMT", "MM/dd/yy");
+  
+    var newcsv = ss.insertSheet(dd+" Assessment").activate();
+  }
+  catch(e)
+  {
+   var newcsv = ss.insertSheet().activate(); 
+  }
+  s1.getRange("A"+lastrow).setValue(dd);
+
+  s1.getRange("F"+lastrow).setValue(ss.getUrl()+"#gid="+newcsv.getSheetId());
+  
+
+  //accessing csv from scriptdb
+ var db=ScriptDb.getMyDb();
+  
+  var lastObj=db.query({type:"csv"}).sortBy("id", db.DESCENDING, db.NUMERIC).next();
+  var array=Utilities.jsonParse(lastObj.data);
+  
+  
+ // var sheet=SpreadsheetApp.getActive().insertSheet();
+  
+  fixData(array);
+  Logger.log(array.length);
+  Logger.log(array[0].length);
+ // sheet.getRange(1,1,array.length, array[0].length).setValues(array);
+  
+  
+  //var checksheet = ss.insertSheet("chupa nitin").activate();
+ /* 
+  for(var i=0;i<array.length;i++)
+  {
+    for(j=0;j<array[i].length;j++)
+    {
+      checksheet.getRange(i+1, j+1).setValue(array[i][j]);
+    }
+  }
+  */
+  //setting headers in newcsv
+  
+  var r1= newcsv.getRange(1, 1, 1, 3).merge().setBackgroundColor("Black").setFontColor("White").setValue(name);
+  
+  
+  newcsv.getRange("A3").setValue("OSIS");
+  newcsv.getRange("B3").setValue("FIRST NAME");
+  newcsv.getRange("C3").setValue("LAST NAME");
+  newcsv.getRange("D3").setValue("FULL NAME");
+  newcsv.getRange("E3").setValue("CLASS");
+  newcsv.getRange("F3").setValue("GROUP");
+  
+
+  //importing from roster and tracker tab
+  
+  var range = s3.getRange("A8:F"+s3.getLastRow());
+  var osisobject = getRowsData(s3 , range);
+  var numColumns = range.getEndRow() - range.getRow() + 1;
+  
+  for( i=1; i<=numColumns; i++)
+  {
+    newcsv.getRange("a"+(i+3)).setValue(osisobject[i-1].osis);
+    
+    newcsv.getRange("b"+(i+3)).setValue(osisobject[i-1].firstName);
+    
+    newcsv.getRange("c"+(i+3)).setValue(osisobject[i-1].lastName);
+    
+    newcsv.getRange("d"+(i+3)).setValue(osisobject[i-1].fullName);
+    
+    newcsv.getRange("e"+(i+3)).setValue(osisobject[i-1].class);
+    
+    newcsv.getRange("f"+(i+3)).setValue(osisobject[i-1].group);
+  }
+  Utilities.sleep(500);
+  newcsv.activate();
+  
+  //storing all three fields values of previous UI
+  
+  
+  var numquetemp= ScriptProperties.getProperty("numque");
+  var numque = parseInt(numquetemp,10);
+  var csvindicators="{";
+  var type="{";
+  var points="{";
+  for(k=1;k<=numque;k++)
+  {
+    if(k==numque)
+    {
+      
+      csvindicators = csvindicators + "\"";
+      csvindicators = csvindicators + k;
+      csvindicators = csvindicators + "\":\"";
+      csvindicators = csvindicators + e.parameter["que"+k];
+      csvindicators = csvindicators + "\"";  
+      
+      type = type + "\"";
+      type = type + k;
+      type = type + "\":\"";
+      type = type + e.parameter["type"+k];
+      type = type + "\"";  
+      
+      points = points + "\"";
+      points = points + k;
+      points = points + "\":\"";
+      points = points + e.parameter["points"+k];
+      points = points + "\"";  
+      
+    }
+    else
+    {
+      csvindicators = csvindicators + "\"";
+      csvindicators = csvindicators + k;
+      csvindicators = csvindicators + "\":\"";
+      csvindicators = csvindicators + e.parameter["que"+k];
+      csvindicators = csvindicators + "\","; 
+      
+      
+      type = type + "\"";
+      type = type + k;
+      type = type + "\":\"";
+      type = type + e.parameter["type"+k];
+      type = type + "\","; 
+      
+      points = points + "\"";
+      points = points + k;
+      points = points + "\":\"";
+      points = points + e.parameter["points"+k];
+      points = points + "\",";  
+      
+      
+    }
+  }
+  var presetindi = ScriptProperties.getProperty("presetindi");
+  csvindicators = csvindicators+ "}";
+  points=points+"}";
+  type=type+"}";
+  ScriptProperties.setProperty("type", type);
+  ScriptProperties.setProperty("points", points);
+  
+  
+  //presetindi contains JSON file of indicators that has been selected in step1
+  //csvindicators contains JSON file of indicators questionwise in step2
+  //points contains JSON file of points questionwise step2
+  //type contains JSON file of type of questions step2(mcq or cr)
+  
+  
+  //for testing purpose
+  //newcsv.getRange("D10").setValue(csvindicators);
+  //newcsv.getRange("E10").setValue(presetindi);
+  //newcsv.getRange("F10").setValue(type);
+  //newcsv.getRange("G10").setValue(points);
+  
+
+
+  //parsing all these JSON into objects
+ /* var av= ss.insertSheet("vf").activate();
+  av.getRange("B1").setValue(presetindi);
+  av.getRange("A1").setValue(csvindicators);
+  av.getRange("C1").setValue(type);
+  av.getRange("D1").setValue(points);
+  */
+  var csvobject = JSON.parse(removeNL(csvindicators));
+  var presetindi = JSON.parse(removeNL(presetindi));
+  var typeobject = JSON.parse(removeNL(type));
+  var pointsobject = JSON.parse(removeNL(points));
+
+  
+
+  
+  //putting indicator name in CSV and number of times that indicators
+ var slast= s3.getLastColumn()+1;
+  for ( var k in presetindi)
+  {
+  var count=0;
+    for (var i in csvobject)
+    {
+     if( presetindi[k]== csvobject[i])
+     {
+       //var x= parseInt(e.parameter["points"+i]);
+       count++ ;
+     }
+    }
+    s3.getRange(1, s3.getLastColumn()+1, 6).setBackgroundColor("Green").setFontColor("White");
+    newcsv.getRange(3, newcsv.getLastColumn()+1).setValue(presetindi[k]).setBackgroundColor("Blue").setFontColor("White");
+    s3.getRange(5, s3.getLastColumn()+1).setValue(presetindi[k]);
+    newcsv.getRange(2, newcsv.getLastColumn()).setValue(count);
+    s3.getRange(6, s3.getLastColumn()).setValue(count);
+    s3.getRange(1, s3.getLastColumn()).setValue(str);
+    s3.getRange(2, s3.getLastColumn()).setValue(unit);
+    s3.getRange(3, s3.getLastColumn()).setValue(name);
+    s3.getRange(4, s3.getLastColumn()).setValue(dd);
+  }
+  
+  
+ //accessing correct answer key
+  var ckeystart= ScriptProperties.getProperty("ckeystart");
+  var ckeyend = ScriptProperties.getProperty("ckeyend");
+  
+  var startcol= newcsv.getRange(ckeystart).getColumn();
+  var endcol= newcsv.getRange(ckeyend).getColumn();
+  
+
+  if(newcsv.getRange(ckeyend).getRow()==newcsv.getRange(ckeystart).getRow())
+  {
+   var row= newcsv.getRange(ckeystart).getRow();
+  }
+  else
+  {
+    Browser.msgBox("Correct Answer key Error: Start and End row do not match");
+  }
+  
+  var correctanswerkey ="{";
+  for(var q= startcol-1; q<endcol; q++)
+  {
+    if(q==startcol-1)
+    {
+      correctanswerkey = correctanswerkey + "\"";
+      correctanswerkey = correctanswerkey + (q-startcol+2);
+      correctanswerkey = correctanswerkey + "\":\"";
+      correctanswerkey = correctanswerkey + array[row-1][q];
+      correctanswerkey = correctanswerkey + "\"";
+        }
+    else
+    {
+      correctanswerkey = correctanswerkey + ",\"";
+      correctanswerkey = correctanswerkey + (q-startcol+2);
+      correctanswerkey = correctanswerkey + "\":\"";
+      correctanswerkey = correctanswerkey + array[row-1][q];
+      correctanswerkey = correctanswerkey + "\"";
+    }
+  }
+  correctanswerkey = correctanswerkey +"}";
+ /* var cc= ss.insertSheet("tilla").activate();
+  cc.getRange("H10").setValue(correctanswerkey);
+  */
+  
+  //now converting correctanswerkey to array
+
+  var answers = JSON.parse(correctanswerkey);
+  
+  //getting some values from ScriptProperties
+
+ 
+  var firststudentrow = parseInt(ScriptProperties.getProperty("rowstudent"));
+  var qc= ScriptProperties.getProperty("columnquestion");
+  var firstquestioncolumn=newcsv.getRange(qc+"1").getColumn();
+ // var firstquestioncolumn= parseInt(ScriptProperties.getProperty("columnquestion"));  
+ 
+
+  
+   
+  
+  
+  //newcsv.getRange("K10").setValue(firstquestioncolumn);
+  //newcsv.getRange("L10").setValue(firststudentrow);
+  //newcsv.getRange("M10").setValue(typeobject[1]);
+  //newcsv.getRange("N10").setValue(ScriptProperties.getProperty("columnidentifier"));
+  //newcsv.getRange("O10").setValue(array[firststudentrow-1][firstquestioncolumn-1]);
+  //newcsv.getRange("P10").setValue(presetindi[1]);
+  //newcsv.getRange("I10").setValue(array[firststudentrow-1][firstquestioncolumn]);
+  //newcsv.getRange("J10").setValue(answers[1]);
+  
+  var marks=[];
+  for(var j = firststudentrow; j<=array.length; j++)
+  {
+    marks[j-firststudentrow]=[];
+  for(var i=1; i<=numque; i++)
+  {
+    if(typeobject[i] =="Multiple Choice")
+    {
+      if(array[j-1][firstquestioncolumn+i-2]==answers[i])
+      {
+        marks[j-firststudentrow][i-1]= pointsobject[i];
+      }
+      else
+      {
+        marks[j-firststudentrow][i-1]= 0;
+      }
+     
+    }
+    else if(typeobject[i] =="Constructed Response")
+    {
+      marks[j-firststudentrow][i-1] = array[j-1][firstquestioncolumn+i-2];
+      //marks[j-firststudentrow][i-1]="raghav";
+    }
+    else
+    {
+      marks[j-firststudentrow][i-1]= " cheeku chupa";
+    }
+  }
+  }
+
+ Utilities.sleep(5000); 
+/*  var ni = ss.insertSheet("checkc").activate();
+  for(var i=0;i<marks.length;i++)
+  {
+    for(j=0;j<marks[i].length;j++)
+    {
+      ni.getRange(i+1, j+1).setValue(marks[i][j]);
+    }
+  }
+ */ 
+  //db.remove(arrayString);
+ 
+//finally we have marks[i][j] starting from 0,0
+  
+ var r = ScriptProperties.getProperty("presetindicount");
+ 
+var len = r-1;
+//newcsv.getRange("J11").setValue(len);  
+  var news =[];
+ for(var i=0; i<marks.length; i++){ 
+     news[i]=[];
+   for ( var k=1;k<=len;k++)
+   {
+     var obtained=0;
+     var total=0;
+     for (var j=1;j<=numque; j++)
+     {
+       if( presetindi[k]== csvobject[j])
+       {
+         var value = parseInt(marks[i][j-1]);
+         if(isNaN(value))
+         {
+           value=0;
+         obtained= obtained+ value;
+         total= total + parseInt(pointsobject[j]);
+         }
+         else
+         {
+         obtained= obtained+ value;
+         total= total + parseInt(pointsobject[j]);
+         }
+         
+         }
+     }
+    //news[i][k-1]=obtained; 
+    var per= (obtained/total)*100;
+    news[i][k-1]=per; 
+   //news[i][k-1]=obtained;
+   }
+ }
+  
+  //now you have news[][] which contains percent for each student indicator wise starting from 00
+  
+  //storing osis from roster and tracker into an array
+/*  
+  var id = parseInt(ScriptProperties.setProperty("columnidentifier"));  
+  for( i=1; i<=numColumns; i++)
+  {
+    for(j=0;j<array.length;j++)
+    {
+      if(osisobject[i-1].osis==array[j][id-1])
+      {
+        newcsv.getRange("a"+(i+3))
+*/
+
+ 
+  //for testing purpose
+/*  var peechu= ss.insertSheet("new").activate();
+
+  for(var i=0; i<array.length; i++){ 
+    for(var j=0; j<array[i].length; j++)
+    {
+      peechu.getRange(i+1, j+1).setValue(array[i][j]);
+    } 
+  }
+ /* 
+  var pee= ss.insertSheet("marks").activate();
+
+  for(var i=0; i<marks.length; i++){ 
+    for(var j=0; j<marks[i].length; j++)
+    {
+      pee.getRange(i+1, j+1).setValue(marks[i][j]);
+    } 
+  }
+
+*/
+  var ci=ScriptProperties.getProperty("columnidentifier");
+  var id=newcsv.getRange(ci+"1").getColumn();
+  //var id = parseInt(ScriptProperties.getProperty("columnidentifier"));
+  //newcsv.getRange("F10").setValue(firststudentrow);
+  //newcsv.getRange("G10").setValue(array[firststudentrow-1][id-1]);
+  //newcsv.getRange("H10").setValue(id);
+  //newcsv.getRange("I10").setValue(newcsv.getRange(4, 1).getValue());
+
+  for(i=8;i<=s3.getLastRow();i++)
+  {
+  for(j=firststudentrow-1;j<array.length;j++)
+  {
+    if(s3.getRange(i, 1).getValue()== array[j][id-1])
+    {
+      
+     //newcsv.getRange(i-4, 7, 1, len).setValues([news[j-firststudentrow+1]]);
+      //s3.getRange(i, slast,1,len).setValues([news[j-firststudentrow+1]]);
+      for(k=0;k<news[j-firststudentrow+1].length;k++)
+      {
+        
+        newcsv.getRange(i-4, 7+k).setValue(news[j-firststudentrow+1][k]);
+        var percent=news[j-firststudentrow+1][k];
+        var score=(percent*s2.getRange("E5").getValue())/100;
+        
+         var minimum =s2.getRange("E4").getValue();
+          if(score>= minimum)
+          {
+            s3.getRange(i, slast+k).setValue(score);
+          }
+          else
+          {
+            s3.getRange(i, slast+k).setValue(minimum);
+          }
+        
+       
+       if(percent>=0 && percent<=33)
+        newcsv.getRange(i-4, 7+k).setBackgroundColor("Red").setFontColor("Black");
+      else if(percent>33 && percent<80)
+        newcsv.getRange(i-4, 7+k).setBackgroundColor("Yellow").setFontColor("Black");
+      else if(percent>=80 && percent<=100)
+        newcsv.getRange(i-4, 7+k).setBackgroundColor("Green").setFontColor("Black");
+      else
+        newcsv.getRange(i-4, 7+k).setBackgroundColor("Black").setFontColor("White");
+    
+      }
+      break;
+    }
+    else
+    {
+      newcsv.getRange(i-4, 7, 1, len).setValue("NA").setBackgroundColor("Black").setFontColor("White");
+    }
+  }
+    
+  }
+Utilities.sleep(300);
+
+  //for calculating averages of each row
+  var lastc = s3.getLastColumn();
+  
+  for( var i=0;i<len;i++)
+  {
+    var end= s3.getRange(s3.getLastRow(),lastc-i).getA1Notation();
+    var start = s3.getRange(8,lastc-i).getA1Notation();
+    s3.getRange(7, lastc-i).setFormula("=average("+start+":"+end+")").setBackgroundColor("Green").setFontColor("White");
+  }
+  
+
+
+
+  
+return app.close();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function importFromCSV() {
+  var ss= SpreadsheetApp.getActive();
+  //var fileName = Browser.inputBox("Enter the name of the file in your Docs List to import (e.g. myFile.csv):");
+  var fileName = ScriptProperties.getProperty("filename");
+  var files = DocsList.getFiles();
+  var csvFile = "";
+ // Browser.msgBox(fileName);
+  
+  for (var i = 0; i < files.length; i++) {
+    if (files[i].getName() == fileName) {
+      csvFile = files[i].getContentAsString();
+      break;
+    }
+  }
+  var csvData = CSVToArray(csvFile, ",");
+
+
+  
+  var db=ScriptDb.getMyDb();
+  var obj={};
+  
+  obj.type="csv";
+  obj.id=db.query({type:"csv"}).getSize()+1;
+  obj.data=Utilities.jsonStringify(csvData);
+  
+  db.save(obj);
+  
+
+  //var csvObject = JSON.parse(csvData);
+  //var db = ScriptDb.getMyDb();
+  
+  
+  //var stored=db.save(csvObject);
+ /* var ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  var sheet = ss.insertSheet(fileName).setName(fileName);
+  for (var i = 0; i < csvData.length; i++) {
+   sheet.getRange(i+1, 1, 1, csvData[i].length).setValues(new Array(csvData[i]));
+  }
+*/
+}
+
+
+// This will parse a delimited string into an array of
+// arrays. The default delimiter is the comma, but this
+// can be overriden in the second argument.
+
+function CSVToArray( strData, strDelimiter ){
+  // Check to see if the delimiter is defined. If not,
+  // then default to comma.
+  strDelimiter = (strDelimiter || ",");
+
+  // Create a regular expression to parse the CSV values.
+  var objPattern = new RegExp(
+    (
+      // Delimiters.
+      "(\\" + strDelimiter + "|\\r?\\n|\\r|^)" +
+
+      // Quoted fields.
+      "(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|" +
+
+      // Standard fields.
+      "([^\"\\" + strDelimiter + "\\r\\n]*))"
+    ),
+    "gi"
+  );
+
+
+  // Create an array to hold our data. Give the array
+  // a default empty first row.
+  var arrData = [[]];
+
+  // Create an array to hold our individual pattern
+  // matching groups.
+  var arrMatches = null;
+
+
+  // Keep looping over the regular expression matches
+  // until we can no longer find a match.
+  while (arrMatches = objPattern.exec( strData )){
+
+    // Get the delimiter that was found.
+    var strMatchedDelimiter = arrMatches[ 1 ];
+
+    // Check to see if the given delimiter has a length
+    // (is not the start of string) and if it matches
+    // field delimiter. If id does not, then we know
+    // that this delimiter is a row delimiter.
+    if (
+      strMatchedDelimiter.length &&
+      (strMatchedDelimiter != strDelimiter)
+    ){
+
+      // Since we have reached a new row of data,
+      // add an empty row to our data array.
+      arrData.push( [] );
+
+    }
+
+
+    // Now that we have our delimiter out of the way,
+    // let's check to see which kind of value we
+    // captured (quoted or unquoted).
+    if (arrMatches[ 2 ]){
+
+      // We found a quoted value. When we capture
+      // this value, unescape any double quotes.
+      var strMatchedValue = arrMatches[ 2 ].replace(
+        new RegExp( "\"\"", "g" ),
+        "\""
+      );
+
+    } else {
+
+      // We found a non-quoted value.
+      var strMatchedValue = arrMatches[ 3 ];
+
+    }
+
+
+    // Now that we have our value string, let's add
+    // it to the data array.
+    arrData[ arrData.length - 1 ].push( strMatchedValue );
+  }
+
+  // Return the parsed data.
+  return( arrData );
+}
+
+
+
+function dell(){
+ 
+  var db=ScriptDb.getMyDb();
+  
+  var data=db.query({});
+  while(data.hasNext())
+    db.remove(data.next());
+  
+}
+
+function fixData(data){
+ 
+  var longest=0;
+  for(var i=0; i<data.length; i++)
+    if(data[i].length>longest)
+      longest=data[i].length;
+  
+  
+  for(var i=0; i<data.length; i++)
+    for(var j=0; j<longest; j++)
+      if(!data[i][j])
+        data[i][j]="";
+  
+  
+}
+
+
+//function associated with 3rd button
+
+function OnlineAssessment()
+{
+  var ss= SpreadsheetApp.getActiveSpreadsheet();
+  try{
+    var onlinesheet= ss.getSheetByName("Add Flubaroo Assessment").activate();
+  }
+  catch(e){
+    var onlinesheet= ss.insertSheet("Add Flubaroo Assessment");
+  }
+  
+  var s1= ss.getSheetByName("Assessment Schedule");
+  var s2= ss.getSheetByName("Indicators");
+  var s3= ss.getSheetByName("Roster and Tracker");
+  var s4= ss.getSheetByName("Reporting");
+  
+  
+  var x = getFirstEmptyRowTags()-2;
+  ScriptProperties.setProperty("numtag", x);
+  
+ 
+  
+  var onlineapp= UiApp.createApplication().setTitle("Add Flubaroo Assessment").setWidth(1024).setHeight(768);
+  var onlinepanel= onlineapp.createGrid().setId("onlinepanel");
+  onlinepanel.resize(x+10, 3);
+  onlinepanel.setText(0, 0, "Step 1: Assessment Information");
+  onlinepanel.setText(2, 0, "Date Assessment was Delivered(Optional)");  
+  onlinepanel.setText(3, 0, "Name of Assessment");
+  onlinepanel.setText(4, 0, "Unit");
+  onlinepanel.setText(5, 0, "Tags");
+  onlinepanel.setText(x+5, 0, "Indicators being Assessed");
+  onlinepanel.setText(x+6, 0, "Mastery Scale- Lowest Score possible");
+  onlinepanel.setText(x+7, 0, "Mastery Scale- Highest Score possible");
+  onlinepanel.setText(x+8, 0, "Link to the Grades Tab of the Quiz (note-you must install flubaroo and grade your quiz before adding it to your tracker)");
+  onlinepanel.setText(x+9, 0, "Column Letter of student identifier");
+  //datebox date of assignment code here
+
+  //to access this date we may not need a handler but in case of next handler we can access it 
+  //by simply calling e.parameter.datebox and use it."
+   
+
+  
+ 
+  var datebox= onlineapp.createDateBox().setId("datebox").setName("datebox").setFormat(UiApp.DateTimeFormat.DATE_SHORT);
+  
+  onlinepanel.setWidget(2, 1, datebox);
+  
+  //textbox name code here
+  //can be access by e.parameter.name 
+  var name= onlineapp.createTextBox().setName("name").setId("name");
+  onlinepanel.setWidget(3, 1, name);
+  
+//listbox unit code here
+//can be access by e.parameter.unit
+  
+  var unit = onlineapp.createListBox().setId("unit").setName("unit");
+  var unitcolumn = getFirstEmptyRowUnits();
+  var noofunits= unitcolumn-2;
+     
+  ScriptProperties.setProperty("numunits", noofunits);
+  
+  for(i=0;i<noofunits;i++)
+  {
+    var c= i+3;
+    unit.addItem(s2.getRange("G"+c).getValue());
+    
+  }
+  onlinepanel.setWidget(4, 1, unit);
+  
+  
+  
+  //checkbox x code here
+  //checkbox id starts from ch1 to chx
+  var valuex = onlineapp.createTextBox().setName(valuex).setId(valuex).setVisible(false).setText(x).setValue(x);
+  onlinepanel.setWidget(4, 2, valuex);
+  for(i=1;i<=x;i++)
+  {
+    var d= i+2;
+    var tag= onlineapp.createCheckBox(s2.getRange("I"+d).getValue()).setId("tag"+i).setName("tag"+i).setTag(s2.getRange("I"+d).getValue());
+    tag.setHTML(tag.getTag());;
+    
+    onlinepanel.setWidget(i+4, 1, tag);
+    
+    
+  }
+  
+  
+  
+//scrollpanel indicators code here
+  
+  var tree= onlineapp.createTree().setId("tree").setAnimationEnabled(true);
+  var y=getFirstEmptyRowIndicators();
+  var noofindicators= y-2;
+  ScriptProperties.setProperty("numindicators", noofindicators);
+ 
+  var sbhandler= onlineapp.createServerHandler("sbhandlerfunction");
+  
+  for(i=1;i<=noofindicators; i++)
+  {
+    var a= i+2;
+    var b=a+1;
+    
+    //this is when there are no strands only corresponding indicators
+    if(s2.getRange("A"+a).getValue()=="")
+    {
+      var cb = onlineapp.createCheckBox(s2.getRange("B"+a).getValue()).setId("indicator"+i).setName("indicator"+i);
+      var treeitemcb = onlineapp.createTreeItem(cb);
+      tree.addItem(treeitemcb);
+    }
+    
+    else
+    {
+      var sb = onlineapp.createCheckBox(s2.getRange("A"+a).getValue()).setId("strand"+i).setName("strand"+i).addValueChangeHandler(sbhandler);
+      var treeitemsb = onlineapp.createTreeItem(sb);
+      
+      var cb = onlineapp.createCheckBox(s2.getRange("B"+a).getValue()).setId("indicator"+i).setName("indicator"+i);
+      var treeitemcb = onlineapp.createTreeItem(cb);
+      sbhandler.addCallbackElement(sb).addCallbackElement(cb);  
+      treeitemsb.addItem(treeitemcb);
+      
+      while((s2.getRange("A"+a).getValue())==(s2.getRange("A"+b).getValue()))
+        
+      {
+        a++;
+        i++;
+        b++;
+        
+        var cb = onlineapp.createCheckBox(s2.getRange("B"+a).getValue()).setId("indicator"+i).setName("indicator"+i);
+        var treeitemcb = onlineapp.createTreeItem(cb);
+        
+        treeitemsb.addItem(treeitemcb);
+        sbhandler.addCallbackElement(cb);
+      }
+      tree.addItem(treeitemsb);
+    }
+  }
+  
+ 
+  
+  var scrollpanel = onlineapp.createScrollPanel(tree).setAlwaysShowScrollBars(true).setWidth("250").setHeight("150").setId("scrollpanel");
+    
+  onlinepanel.setWidget(x+5, 1, scrollpanel);
+  
+ 
+  
+  
+  
+  //lowest and highest textbox code here
+  
+  var lowscore= onlineapp.createTextBox().setName("lowscore").setId("lowscore");
+  onlinepanel.setWidget(x+6, 1, lowscore);
+  var highscore= onlineapp.createTextBox().setName("highscore").setId("highscore");
+  onlinepanel.setWidget(x+7, 1, highscore);
+  
+  
+  //link textbox
+  var linkhandler = onlineapp.createServerHandler('onchange');
+  var link = onlineapp.createTextBox().setName("link").setId("link").addChangeHandler(linkhandler);
+  onlinepanel.setWidget(x+8, 1, link);
+  
+  
+  //Column of student identifier
+  var identifier= onlineapp.createTextBox().setName("identifier").setId("identifier");
+  onlinepanel.setWidget(x+9, 1, identifier);
+  
+  
+  
+  //nextbutton code here 
+  var nexthandler= onlineapp.createServerClickHandler('onlinestep2');
+  nexthandler.addCallbackElement(onlinepanel);
+  
+  
+  var nextbutton = onlineapp.createButton("Next");
+  onlinepanel.setWidget(x+9, 2, nextbutton);
+ 
+  
+  var spinner = onlineapp.createImage('http://2.bp.blogspot.com/-PEBs-e8TLjw/UDBXHxy6v8I/AAAAAAAAANA/7EsfVtylA5s/s1600/ajax-loader+(2).gif')
+      .setVisible(false)
+      .setId('spinner');
+  onlinepanel.setWidget(0, 1, spinner);
+  
+  var loadSpinner = onlineapp.createClientHandler()
+      .forTargets(spinner)
+      .setVisible(true);
+  
+  
+  nextbutton.addClickHandler(nexthandler).addMouseUpHandler(loadSpinner);
+  
+  
+  
+  onlineapp.add(onlinepanel);
+  ss.show(onlineapp);
+  
+return onlineapp;
+  
+}
+
+
+function onlinestep2(e)
+{
+  //declaring all values
+  var ss= SpreadsheetApp.getActiveSpreadsheet();
+  var s1= ss.getSheetByName("Assessment Schedule");
+  var s2= ss.getSheetByName("Indicators");
+  var s3= ss.getSheetByName("Roster and Tracker");
+  var s4= ss.getSheetByName("Reporting");
+  
+  var app = UiApp.getActiveApplication();
+  var num= parseInt(ScriptProperties.getProperty("onumberques"));
+  //Browser.msgBox(num);
+  var grid = app.getElementById("onlinepanel");
+  grid.clear();
+  grid.resize(num+3,2);
+  grid.setWidget(0,0, app.createLabel("Step-2: Question Information"));
+  //setting all old ui values to scriptproperties
+  
+  ScriptProperties.setProperty("odate", e.parameter.datebox);
+  ScriptProperties.setProperty("oname", e.parameter.name);
+  ScriptProperties.setProperty("ounit", e.parameter.unit);
+  ScriptProperties.setProperty("olow",e.parameter.lowscore);  
+  ScriptProperties.setProperty("ohigh",e.parameter.highscore);
+  ScriptProperties.setProperty("oidentifier",e.parameter.identifier);
+  //ScriptProperties.setProperty("onumberques",e.parameter.numberques);
+  
+  //storing tags
+  var x= parseInt(getFirstEmptyRowTags()-2,10);
+  var tags=" ";
+  for(i=1;i<=x;i++)
+  {
+    var d= i+2;
+    var tag= app.getElementById("tag"+i);
+    
+    if( e.parameter["tag"+i] == "true")
+    {
+      tags = tags + " ,"+ e.parameter["tag"+i+"_tag"];
+      
+    }
+  }
+  
+  ScriptProperties.setProperty("tags", tags);
+  var noofindicators = parseInt(getFirstEmptyRowIndicators()-2,10);
+  
+  //for ui creation 
+  for(j=1;j<=num;j++)
+  {
+    var listbox = app.createListBox().setName("que"+j).setId("que"+j);
+    
+    for(i=1;i<= noofindicators; i++)
+    {
+      
+      if(e.parameter["indicator" + i] == "true")
+      {
+        var v= i+2;
+        listbox.addItem(s2.getRange("B"+v).getValue());
+        
+      }
+    }
+    
+    grid.setWidget(j+1, 0, app.createLabel("Question "+j+" Indicators"));
+    grid.setWidget(j+1, 1, listbox); 
+
+  }
+  
+  
+  var r=1;
+  var presetindi= "{";
+  for(i=1;i<= noofindicators; i++)
+  {
+    
+    if(e.parameter["indicator" + i] == "true")
+    {
+      var v= i+2;
+      if(r==1)
+      {
+        presetindi = presetindi + "\"";
+        presetindi = presetindi + r;
+        presetindi = presetindi + "\":\"";
+        presetindi = presetindi + s2.getRange("B"+v).getValue();
+        presetindi = presetindi+ "\""; 
+      }
+      else
+      {
+        presetindi = presetindi + ",\"";
+        presetindi = presetindi + r;
+        presetindi = presetindi + "\":\"";
+        presetindi = presetindi + s2.getRange("B"+v).getValue();
+        presetindi = presetindi+ "\""; 
+      }
+      r++;
+    }
+  }
+  ScriptProperties.setProperty("pindicount", r);
+  presetindi = presetindi + "}";
+  
+ 
+        var spinner = app.createImage('http://2.bp.blogspot.com/-PEBs-e8TLjw/UDBXHxy6v8I/AAAAAAAAANA/7EsfVtylA5s/s1600/ajax-loader+(2).gif')
+                                .setVisible(false)
+                                .setId('spinner');
+  app.add(spinner);
+  
+    var loadSpinner = app.createClientHandler()
+                  .forTargets(spinner)
+                  .setVisible(true);
+
+  
+  
+  ScriptProperties.setProperty("pindi", presetindi);
+  
+  var onlinenexth = app.createServerHandler("OnlineStep3");
+  onlinenexth.addCallbackElement(grid);
+  grid.setWidget(j+1, 0, app.createButton("Next").addClickHandler(onlinenexth).addMouseUpHandler(loadSpinner));
+  grid.setWidget(j+1, 1, app.createLabel(" "));
+  
+
+  
+  var spanel = app.createScrollPanel().setSize(1000, 500).setStyleAttribute('border', '1px solid black');
+  spanel.add(grid);
+  app.add(spanel);
+  return app;
+}
+
+
+function OnlineStep3(e)
+{
+  var ss= SpreadsheetApp.getActiveSpreadsheet();
+  
+  var s1= ss.getSheetByName("Assessment Schedule");
+  var s2= ss.getSheetByName("Indicators");
+  var s3= ss.getSheetByName("Roster and Tracker");
+  var s4= ss.getSheetByName("Reporting");
+
+  var app = UiApp.getActiveApplication();
+
+  
+  //updating assessment schedule
+  
+  var date = ScriptProperties.getProperty("odate");
+  var name= ScriptProperties.getProperty("oname");
+  var unit= ScriptProperties.getProperty("ounit");
+  var str= ScriptProperties.getProperty("otags");
+  
+  var last=s1.getLastRow()+1;
+  
+  
+  s1.getRange("B"+last).setValue(name);
+  s1.getRange("C"+last).setValue("Flubaroo Assessment");
+  s1.getRange("D"+last).setValue(unit);
+  s1.getRange("E"+last).setValue(str);
+  
+  Utilities.sleep(500);
+  if(date=="")
+  {
+    var newonline = ss.insertSheet(name+" Assessment");
+    s1.getRange("A"+last).setValue("");
+  }
+  else
+  {
+    try{
+    var date3= new Date(date);
+    var dd= Utilities.formatDate(date3, "GMT", "MM/dd/yy");
+    var newonline = ss.insertSheet(dd+" Assessment").activate();
+    }
+    catch(e)
+    {
+      var newonline = ss.insertSheet().activate();
+    }
+    s1.getRange("A"+last).setValue(dd);
+  }
+  
+  s1.getRange("F"+last).setValue(ss.getUrl()+"#gid="+newonline.getSheetId());
+  
+  
+  //copying students from roster and tracker to onlinenew
+  
+  //setting headers in newonline
+  
+  var r1= newonline.getRange(1, 1, 1, 3).merge().setBackgroundColor("Black").setFontColor("White").setValue(name);
+
+  newonline.getRange("A3").setValue("OSIS");
+  newonline.getRange("B3").setValue("FIRST NAME");
+  newonline.getRange("C3").setValue("LAST NAME");
+  newonline.getRange("D3").setValue("FULL NAME");
+  newonline.getRange("E3").setValue("CLASS");
+  newonline.getRange("F3").setValue("GROUP");
+  
+  //importing from roster and tracker tab
+  
+  var range = s3.getRange("A8:F"+s3.getLastRow());
+  var osisobject = getRowsData(s3 , range);
+  var numColumns = range.getEndRow() - range.getRow() + 1;
+  
+  for( i=1; i<=numColumns; i++)
+  {
+    newonline.getRange("a"+(i+3)).setValue(osisobject[i-1].osis);
+    
+    newonline.getRange("b"+(i+3)).setValue(osisobject[i-1].firstName);
+    
+    newonline.getRange("c"+(i+3)).setValue(osisobject[i-1].lastName);
+    
+    newonline.getRange("d"+(i+3)).setValue(osisobject[i-1].fullName);
+    
+    newonline.getRange("e"+(i+3)).setValue(osisobject[i-1].class);
+    
+    newonline.getRange("f"+(i+3)).setValue(osisobject[i-1].group);
+  }
+  
+  Utilities.sleep(500);
+  newonline.activate();
+  
+  // putting headers in newonline sheet
+  
+    //storing all three fields values of previous UI
+  
+  
+  var numquetemp= ScriptProperties.getProperty("onumberques");
+  var numque = parseInt(numquetemp,10);
+  var csvindicators="{";
+
+  for(k=1;k<=numque;k++)
+  {
+    if(k==numque)
+    {
+      
+      csvindicators = csvindicators + "\"";
+      csvindicators = csvindicators + k;
+      csvindicators = csvindicators + "\":\"";
+      csvindicators = csvindicators + e.parameter["que"+k];
+      csvindicators = csvindicators + "\"";  
+      
+     
+    }
+    else
+    {
+      csvindicators = csvindicators + "\"";
+      csvindicators = csvindicators + k;
+      csvindicators = csvindicators + "\":\"";
+      csvindicators = csvindicators + e.parameter["que"+k];
+      csvindicators = csvindicators + "\","; 
+      
+    }
+  }
+  
+  csvindicators = csvindicators+ "}";
+
+  ScriptProperties.setProperty("indicators", csvindicators);
+  
+  var pindi = ScriptProperties.getProperty("pindi");
+  var pindicount = parseInt(ScriptProperties.getProperty("pindicount") ,10)-1;
+  
+  
+
+
+  //parsing all these JSON into objects
+  
+  var indi = JSON.parse(removeNL(csvindicators));
+  var preindi = JSON.parse(removeNL(pindi));
+  
+//  newonline.getRange("A15").setValue(pindi);
+ // newonline.getRange("B15").setValue(pindicount);  
+  //newonline.getRange("C15").setValue(csvindicators);
+  
+  var slast= s3.getLastColumn()+1;
+  
+  //updating header
+  for(i=1;i<=pindicount;i++)
+  {
+    var count=0;
+    for(j=1;j<=numque;j++)
+    {
+      if(preindi[i]==indi[j])
+      {
+        count++;
+      }
+    }
+    newonline.getRange(3, newonline.getLastColumn()+1).setValue(preindi[i]).setBackgroundColor("Blue").setFontColor("White");
+    newonline.getRange(2, newonline.getLastColumn()).setValue(count);
+    
+    s3.getRange(1, s3.getLastColumn()+1, 6).setBackgroundColor("Red").setFontColor("White");
+    s3.getRange(5, s3.getLastColumn()+1).setValue(preindi[i]);
+    s3.getRange(6, s3.getLastColumn()).setValue(count);
+    s3.getRange(1, s3.getLastColumn()).setValue(str);
+    s3.getRange(2, s3.getLastColumn()).setValue(unit);
+    s3.getRange(3, s3.getLastColumn()).setValue(name);
+    s3.getRange(4, s3.getLastColumn()).setValue(dd);
+    
+  }
+  
+  var link = ScriptProperties.getProperty("olink");
+ 
+  
+  var id=link.substring(link.indexOf("=")+1, link.lastIndexOf("#") );
+  
+ 
+ 
+  var target = SpreadsheetApp.openById(id);
+  
+  var targetsheet = target.getSheetByName("Grades");
+  
+  //newonline.getRange("B13").setValue(targetsheet.getIndex());
+  
+  //to find questionstart 
+  
+  var lastcol = targetsheet.getLastColumn();
+  var lastrow = parseInt(ScriptProperties.getProperty("lastrow"),10);
+ 
+  
+
+  var questionstart=parseInt(ScriptProperties.getProperty("questionstart"),10);
+  
+//  newonline.getRange("B14").setValue(lastrow);
+  //newonline.getRange("B13").setValue(lastcol);
+  newonline.activate();
+ 
+  var score =[];
+ for(var p=8;p<=lastrow;p++)
+ {
+   score[p-8]=[];
+   for(var q=questionstart;q<=lastcol;q++)
+   {
+     score[p-8][q-questionstart]=targetsheet.getRange(p, q).getValue();
+   }
+ }
+  
+
+  var totalrow= lastrow+12;
+  
+    var arr =[];
+  var len= pindicount;
+ for(var i=0; i<score.length; i++){ 
+     arr[i]=[];
+   for ( var k=1;k<=len;k++)
+   {
+     var obtained=0;
+     var total=0;
+     for (var j=1;j<=numque; j++)
+     {
+       if( preindi[k]== indi[j])
+       {
+         var t= targetsheet.getRange(totalrow, questionstart+j-1).getValue().substring(0,1);
+         var value = parseInt(score[i][j-1],10);
+         if(isNaN(value))
+         {
+           value=0;
+           obtained= obtained+ value;
+           
+           total= total + parseInt(t,10);
+         }
+         else
+         {
+           obtained= obtained+ value;
+           total= total + parseInt(t,10);
+         }
+         
+       }
+     }
+     //news[i][k-1]=obtained; 
+     var per= (obtained/total)*100;
+     arr[i][k-1]=per; 
+   }
+ }
+  /*
+   var peechu= ss.insertSheet("new").activate();
+
+  for(var i=0; i<arr.length; i++){ 
+    for(var j=0; j<arr[i].length; j++)
+    {
+      peechu.getRange(i+1, j+1).setValue(arr[i][j]);
+    } 
+  } 
+  */
+  
+  var letterid = ScriptProperties.getProperty("oidentifier");
+  
+  var identifier= newonline.getRange(letterid+"1").getColumn();
+  //var identifier = parseInt(ScriptProperties.getProperty("oidentifier"),10);
+  
+//  newonline.getRange("F10").setValue(slast);
+//  newonline.getRange("E10").setValue(identifier);
+  
+  
+ 
+  for(i=8;i<=s3.getLastRow();i++)
+  {
+    var val = s3.getRange(i, 1).getValue();
+    for(j=8;j<=lastrow;j++)
+    {
+      if(val== targetsheet.getRange(j, identifier).getValue())
+      {
+           // s3.getRange(i, slast,1,len).setValues([news[j-firststudentrow+1]]);
+        for(k=0;k<arr[j-8].length;k++)
+        {
+          var percent=arr[j-8][k];
+          newonline.getRange(i-4, 7+k).setValue(percent);
+          
+          
+          var score=(percent*parseInt(s2.getRange("E5").getValue(),10))/100;
+          
+          var minimum =s2.getRange("E4").getValue();
+          if(score>= minimum)
+          {
+            s3.getRange(i, slast+k).setValue(score);
+          }
+          else
+          {
+            s3.getRange(i, slast+k).setValue(minimum);
+          }
+          if(percent>=0 && percent<=33)
+          newonline.getRange(i-4, 7+k).setBackgroundColor("Red").setFontColor("Black");
+          else if(percent>33 && percent<80)
+            newonline.getRange(i-4, 7+k).setBackgroundColor("Yellow").setFontColor("Black");
+          else if(percent>=80 && percent<=100)
+            newonline.getRange(i-4, 7+k).setBackgroundColor("Green").setFontColor("Black");
+          else
+            newonline.getRange(i-4, 7+k).setBackgroundColor("Black").setFontColor("White");
+        }
+        break;
+      }
+      else
+      {
+        newonline.getRange(i-4, 7, 1, pindicount).setValue("NA").setBackgroundColor("Black").setFontColor("White");
+      }
+    }
+    
+  }
+  
+  //for calculating average of each row in roster and tracker tab
+  
+  var lastc = s3.getLastColumn();
+  
+  for( var i=0;i<len;i++)
+  {
+    var end= s3.getRange(s3.getLastRow(),lastc-i).getA1Notation();
+    var start = s3.getRange(8,lastc-i).getA1Notation();
+    s3.getRange(7, lastc-i).setFormula("=average("+start+":"+end+")").setBackgroundColor("Red").setFontColor("White");
+  }
+  
+  
+  
+  
+  return app.close();
+  
+}
+
+
+
+
+
+
+
+function onchange(e)
+{
+  try{
+  var link = e.parameter.link;
+  var id=link.substring(link.indexOf("=")+1, link.lastIndexOf("#") );
+  var target = SpreadsheetApp.openById(id);
+  var targetsheet = target.getSheetByName("Grades");
+  var lastcol = targetsheet.getLastColumn();
+  var lastrow = targetsheet.getLastRow();
+  for (var x=1;x<=lastcol;x++)
+  {
+    if(targetsheet.getRange(7,x).getValue()=="Times Submitted")
+    {
+      break;
+    }
+  }
+  
+  for(var y=1;y<=lastrow;y++)
+  {
+    if(targetsheet.getRange(y,1).getValue()=="Percent Correct:")
+    {
+      break;
+    }
+  }
+  var lastr=y-2;
+  ScriptProperties.setProperty("lastrow", lastr);
+  var questionstart=x+1;
+  var numques= lastcol-questionstart+1;
+  ScriptProperties.setProperty("questionstart", questionstart);
+  ScriptProperties.setProperty("onumberques", numques);
+  ScriptProperties.setProperty("olink", link);
+  
+    
+    
+    
+    
+    
+
+}
+catch(e)
+{
+  Browser.msgBox("Link you provided is not valid");
+}
+}
+
+
+
+// getRowsData iterates row by row in the input range and returns an array of objects.
+// Each object contains all the data for a given row, indexed by its normalized column name.
+// Arguments:
+//   - sheet: the sheet object that contains the data to be processed
+//   - range: the exact range of cells where the data is stored
+//   - columnHeadersRowIndex: specifies the row number where the column names are stored.
+//       This argument is optional and it defaults to the row immediately above range; 
+// Returns an Array of objects.
+function getRowsData(sheet, range, columnHeadersRowIndex) {
+  columnHeadersRowIndex = columnHeadersRowIndex || range.getRowIndex() - 1;
+  var numColumns = range.getEndColumn() - range.getColumn() + 1;
+  var headersRange = sheet.getRange(columnHeadersRowIndex, range.getColumn(), 1, numColumns);
+  var headers = headersRange.getValues()[0];
+  return getObjects(range.getValues(), normalizeHeaders(headers));
+}
+
+// getColumnsData iterates column by column in the input range and returns an array of objects.
+// Each object contains all the data for a given column, indexed by its normalized row name.
+// Arguments:
+//   - sheet: the sheet object that contains the data to be processed
+//   - range: the exact range of cells where the data is stored
+//   - rowHeadersColumnIndex: specifies the column number where the row names are stored.
+//       This argument is optional and it defaults to the column immediately left of the range; 
+// Returns an Array of objects.
+function getColumnsData(sheet, range, rowHeadersColumnIndex) {
+  rowHeadersColumnIndex = rowHeadersColumnIndex || range.getColumnIndex() - 1;
+  var headersTmp = sheet.getRange(range.getRow(), rowHeadersColumnIndex, range.getNumRows(), 1).getValues();
+  var headers = normalizeHeaders(arrayTranspose(headersTmp)[0]);
+  return getObjects(arrayTranspose(range.getValues()), headers);
+}
+
+
+// For every row of data in data, generates an object that contains the data. Names of
+// object fields are defined in keys.
+// Arguments:
+//   - data: JavaScript 2d array
+//   - keys: Array of Strings that define the property names for the objects to create
+function getObjects(data, keys) {
+  var objects = [];
+  for (var i = 0; i < data.length; ++i) {
+    var object = {};
+    var hasData = false;
+    for (var j = 0; j < data[i].length; ++j) {
+      var cellData = data[i][j];
+      if (isCellEmpty(cellData)) {
+        continue;
+      }
+      object[keys[j]] = cellData;
+      hasData = true;
+    }
+    if (hasData) {
+      objects.push(object);
+    }
+  }
+  return objects;
+}
+
+// Returns an Array of normalized Strings.
+// Arguments:
+//   - headers: Array of Strings to normalize
+function normalizeHeaders(headers) {
+  var keys = [];
+  for (var i = 0; i < headers.length; ++i) {
+    var key = normalizeHeader(headers[i]);
+    if (key.length > 0) {
+      keys.push(key);
+    }
+  }
+  return keys;
+}
+
+// Normalizes a string, by removing all alphanumeric characters and using mixed case
+// to separate words. The output will always start with a lower case letter.
+// This function is designed to produce JavaScript object property names.
+// Arguments:
+//   - header: string to normalize
+// Examples:
+//   "First Name" -> "firstName"
+//   "Market Cap (millions) -> "marketCapMillions
+//   "1 number at the beginning is ignored" -> "numberAtTheBeginningIsIgnored"
+function normalizeHeader(header) {
+  var key = "";
+  var upperCase = false;
+  for (var i = 0; i < header.length; ++i) {
+    var letter = header[i];
+    if (letter == " " && key.length > 0) {
+      upperCase = true;
+      continue;
+    }
+    if (!isAlnum(letter)) {
+      continue;
+    }
+    if (key.length == 0 && isDigit(letter)) {
+      continue; // first character must be a letter
+    }
+    if (upperCase) {
+      upperCase = false;
+      key += letter.toUpperCase();
+    } else {
+      key += letter.toLowerCase();
+    }
+  }
+  return key;
+}
+
+// Returns true if the cell where cellData was read from is empty.
+// Arguments:
+//   - cellData: string
+function isCellEmpty(cellData) {
+  return typeof(cellData) == "string" && cellData == "";
+}
+
+// Returns true if the character char is alphabetical, false otherwise.
+function isAlnum(char) {
+  return char >= 'A' && char <= 'Z' ||
+    char >= 'a' && char <= 'z' ||
+    isDigit(char);
+}
+
+// Returns true if the character char is a digit, false otherwise.
+function isDigit(char) {
+  return char >= '0' && char <= '9';
+}
+
+// Given a JavaScript 2d Array, this function returns the transposed table.
+// Arguments:
+//   - data: JavaScript 2d Array
+// Returns a JavaScript 2d Array
+// Example: arrayTranspose([[1,2,3],[4,5,6]]) returns [[1,4],[2,5],[3,6]].
+function arrayTranspose(data) {
+  if (data.length == 0 || data[0].length == 0) {
+    return null;
+  }
+
+  var ret = [];
+  for (var i = 0; i < data[0].length; ++i) {
+    ret.push([]);
+  }
+
+  for (var i = 0; i < data.length; ++i) {
+    for (var j = 0; j < data[i].length; ++j) {
+      ret[j][i] = data[i][j];
+    }
+  }
+
+  return ret;
+}
+
+
+
+
+function onInstall() {
+  onOpen();
+}
+
+
+
+//here s1 refers to assessment schedule tab
+//here s2 refers to indicators tab
+//here s3 refers to roster and tracker tab
+//here s4 refers to reporting tab
+
+
+
+//function called while opening spreadsheet
+function onOpen() {
+  
+  
+  var ss= SpreadsheetApp.getActiveSpreadsheet();
+  
+  var menuEntries = [ {name: "Manual Assessment", functionName: "ManualAssessment"},
+                      {name: "CSV Assessment", functionName: "CSVAssessment"},
+                     {name: "Online Assessment", functionName: "OnlineAssessment"},
+                     {name: "Student Reporting", functionName: "student"},
+                     {name: "Indicator Reporting", functionName: "Indicator"},
+                     {name: "About Project", functionName: "AboutProject"}];
+  
+  ss.addMenu("Standards-Based Assessment", menuEntries);
+  
+  //creating indicators tab
+  
+  try{
+    
+    var s2 = ss.getSheetByName("Indicators").activate();
+    
+    s2.getRange("A1").setValue("Power Standard /Strand").setBackground("Blue").setFontColor("White");
+    s2.getRange("B1").setValue("Standard /Indicator").setBackground("Blue").setFontColor("White");
+    s2.getRange("D1").setValue("Universal Scale Settings").setBackground("Green").setFontColor("White");
+    s2.getRange("E1").setBackground("Green").setFontColor("White");
+    s2.getRange("G1").setValue("Units").setBackground("Red").setFontColor("White");
+    s2.getRange("I1").setValue("Assessment Tags").setBackground("Red").setFontColor("White");
+    s2.getRange("C1").setValue("=HYPERLINK(\"http://www.corestandards.org/assets/CCSSI_ELA%20Standards.pdF\",\"ELA Common Core\")");
+    s2.getRange("C2").setValue("=HYPERLINK(\"http://www.corestandards.org/assets/CCSSI_Math%20Standards.pdf\",\"Math Common Core\")");
+    s2.getRange("E2").setBackground("Green").setFontColor("White");
+    s2.getRange("A2").setValue("Optional- if you have a lot of standards you are trying to track for the year, it is advisable to assign them to a handful of power standards").setBackground("Grey").setFontColor("White");
+    s2.getRange("B2").setValue("Required- it is advisable to keep this list limited to only those key standards you are looking to track.Ideally 4-6 for the year").setBackground("Grey").setFontColor("White");
+    s2.getRange("D2").setValue("Your indivisual assessments can have their own scale,but in order to look at the results in reports, they will be converted to this universal scale.Typically school use a 1-4 scale with 1 being below excpectations and 4 being exceeds expectation").setBackground("Green").setFontColor("White");
+    s2.getRange("D3").setValue("");
+    s2.getRange("E3").setValue("");
+    s2.getRange("E4").setValue("1").setBorder(true, true, true, true, true, true);
+    s2.getRange("E5").setValue("4").setBorder(true, true, true, true, true, true);
+    
+    s2.getRange("G2").setValue("List your unit names below,you will be able to associate your assessments to these unit titles.If you plan on bringing state and Interim Testing Data into your tracker,then leave those titles in the list.").setBackground("Grey").setFontColor("White");
+    s2.getRange("I2").setValue("This is optional-If you would like to tag your assessments so that you can report on them or group them in certain ways,add your tags below.You will be able to associate these tags to your assessments.An example might be 'Exit Ticket Assessment' or 'Performance Task'.").setBackground("Grey").setFontColor("White");
+    
+    s2.getRange("D4").setValue("Lowest Possible");
+    s2.getRange("D5").setValue("Highest Possible");
+    
+  }
+  catch(e)
+  {
+    var s2 = ss.insertSheet("Indicators").activate();
+    s2.getRange("A1").setValue("Power Standard /Strand").setBackground("Blue").setFontColor("White");
+    s2.getRange("B1").setValue("Standard /Indicator").setBackground("Blue").setFontColor("White");
+    s2.getRange("D1").setValue("Universal Scale Settings").setBackground("Green").setFontColor("White");
+    s2.getRange("E1").setBackground("Green").setFontColor("White");
+    s2.getRange("G1").setValue("Units").setBackground("Red").setFontColor("White");
+    s2.getRange("I1").setValue("Assessment Tags").setBackground("Red").setFontColor("White");
+    
+    s2.getRange("C1").setValue("=HYPERLINK(\"http://www.corestandards.org/assets/CCSSI_ELA%20Standards.pdF\",\"ELA Common Core\")");
+    s2.getRange("C2").setValue("=HYPERLINK(\"http://www.corestandards.org/assets/CCSSI_Math%20Standards.pdf\",\"Math Common Core\")");
+    
+    s2.getRange("E2").setBackground("Green").setFontColor("White");
+    s2.getRange("A2").setValue("Optional- if you have a lot of standards you are trying to track for the year, it is advisable to assign them to a handful of power standards").setBackground("Grey").setFontColor("White");
+    s2.getRange("B2").setValue("Required- it is advisable to keep this list limited to only those key standards you are looking to track.Ideally 4-6 for the year").setBackground("Grey").setFontColor("White");
+    s2.getRange("D2").setValue("Your indivisual assessments can have their own scale,but in order to look at the results in reports, they will be converted to this universal scale.Typically school use a 1-4 scale with 1 being below excpectations and 4 being exceeds expectation").setBackground("Green").setFontColor("White");
+    s2.getRange("D3").setValue("");
+    s2.getRange("E3").setValue("");
+    s2.getRange("E4").setValue("1").setBorder(true, true, true, true, true, true);
+    s2.getRange("E5").setValue("4").setBorder(true, true, true, true, true, true);
+    
+    s2.getRange("G2").setValue("List your unit names below,you will be able to associate your assessments to these unit titles.If you plan on bringing state and Interim Testing Data into your tracker,then leave those titles in the list.").setBackground("Grey").setFontColor("White");
+    s2.getRange("I2").setValue("This is optional-If you would like to tag your assessments so that you can report on them or group them in certain ways,add your tags below.You will be able to associate these tags to your assessments.An example might be 'Exit Ticket Assessment' or 'Performance Task'.").setBackground("Grey").setFontColor("White");
+    
+    s2.getRange("D4").setValue("Lowest Possible");
+    s2.getRange("D5").setValue("Highest Possible");
+  }
+  
+  
+  
+  //Creating roster and tracker tab
+  
+  try{
+    var s3 = ss.getSheetByName("Roster and Tracker").activate();
+    s3.getRange(6, 1, 2, 7).setBackgroundRGB(11, 83, 148).setFontColor("White");
+    s3.getRange(6, 1, 1, 7).merge().setValue("Enter in your roster below.");
+    s3.getRange("a7").setValue("Osis");
+    s3.getRange("b7").setValue("First Name");
+    s3.getRange("c7").setValue("Last Name");
+    s3.getRange("d7").setValue("Full Name");
+    s3.getRange("e7").setValue("Class");
+    s3.getRange("f7").setValue("Group");
+    s3.getRange("g7").setValue("Email");
+  }
+  catch(e)
+  {
+    var s3 = ss.insertSheet("Roster and Tracker").activate();
+    s3.getRange(6, 1, 2, 7).setBackgroundRGB(11, 83, 148).setFontColor("White");
+    s3.getRange(6, 1, 1, 7).merge().setValue("Enter in your roster below.");
+    s3.getRange("a7").setValue("Osis");
+    s3.getRange("b7").setValue("First Name");
+    s3.getRange("c7").setValue("Last Name");
+    s3.getRange("d7").setValue("Full Name");
+    s3.getRange("e7").setValue("Class");
+    s3.getRange("f7").setValue("Group");
+    s3.getRange("g7").setValue("Email");
+   
+  }
+
+  
+//Creating Reporting tab
+  
+  try{
+    var s4 = ss.getSheetByName("Reporting").activate();
+  }
+  catch(e)
+  {
+    var s4 = ss.insertSheet("Reporting").activate();
+  }
+  
+  
+  
+  //Creating Assessment Schedule tab 
+  
+  try{
+    var s1= ss.getSheetByName("Assessment Schedule").activate();
+    s1.getRange("A3").setValue("Step 1: Click on the \"Roster and Tracker\" tab and enter in your roster")
+      .setFontColor("White").setBackgroundRGB(0, 128, 0);
+    s1.getRange("B3").setValue("Step 2: Click on the \"Indicators\" Tab and enter in your indicators, scale, units and keywords in the rows below the titles.")
+      .setFontColor("White").setBackgroundRGB(11, 83, 148);
+    s1.getRange("C3").setFontColor("White").setBackgroundRGB(127, 16, 71).
+      setValue("Step 3: Using the \"Standards-Based Assessment\" menu tab (Next to \"Help\" at the top\") start adding and entering in assessments throughout the year.");
+    s1.getRange("D3").setFontColor("White").
+      setValue("Step 4: Run reports through the \"Standards-Based Assessment\" menu tab at the top").setBackgroundRGB(153, 0, 0);
+    
+    s1.getRange(9, 1, 1, 6).merge().setValue("Do Not Edit Below the Blue Bar").setFontColor("White").setBackgroundRGB(11, 83, 148);
+    
+       s1.getRange(10, 7, 1, 10).setBackgroundRGB(11, 83, 148);
+    
+    s1.getRange("A10").setValue("Week Of:").setBackgroundColor("Blue").setFontColor("White");
+    s1.getRange("B10").setValue("Assessment Name").setBackgroundColor("Blue").setFontColor("White");
+    s1.getRange("C10").setValue("Data Location").setBackgroundColor("Blue").setFontColor("White");
+    // s1.getRange("D10").setValue("Assessment Type").setBackgroundColor("Blue").setFontColor("White");
+    s1.getRange("D10").setValue("Unit").setBackgroundColor("Blue").setFontColor("White");
+    s1.getRange("E10").setValue("Tags").setBackgroundColor("Blue").setFontColor("White");
+    s1.getRange("F10").setValue("Link to Assessments").setBackgroundColor("Blue").setFontColor("White");
+    
+  }
+  catch(e)
+  {
+    var s1= ss.insertSheet("Assessment Schedule").activate();
+        var s1= ss.getSheetByName("Assessment Schedule").activate();
+    s1.getRange("A3").setValue("Step 1: Click on the \"Roster and Tracker\" tab and enter in your roster")
+      .setFontColor("White").setBackgroundRGB(0, 128, 0);
+    s1.getRange("B3").setValue("Step 2: Click on the \"Indicators\" Tab and enter in your indicators, scale, units and keywords in the rows below the titles.")
+      .setFontColor("White").setBackgroundRGB(11, 83, 148);
+    s1.getRange("C3").setFontColor("White").setBackgroundRGB(127, 16, 71).
+      setValue("Step 3: Using the \"Standards-Based Assessment\" menu tab (Next to \"Help\" at the top\") start adding and entering in assessments throughout the year.");
+    s1.getRange("D3").setFontColor("White").
+      setValue("Step 4: Run reports through the \"Standards-Based Assessment\" menu tab at the top").setBackgroundRGB(153, 0, 0);
+     s1.getRange(9, 1, 1, 6).merge().setValue("Do Not Edit Below the Blue Bar").setFontColor("White").setBackgroundRGB(11, 83, 148);
+    s1.getRange(10, 7, 1, 10).setBackgroundRGB(11, 83, 148);
+    
+    s1.getRange("A10").setValue("Week Of:").setBackgroundColor("Blue").setFontColor("White");
+    s1.getRange("B10").setValue("Assessment Name").setBackgroundColor("Blue").setFontColor("White");
+    s1.getRange("C10").setValue("Data Location").setBackgroundColor("Blue").setFontColor("White");
+    s1.getRange("D10").setValue("Unit").setBackgroundColor("Blue").setFontColor("White");
+    s1.getRange("E10").setValue("Tags").setBackgroundColor("Blue").setFontColor("White");
+    s1.getRange("F10").setValue("Link to Assessments").setBackgroundColor("Blue").setFontColor("White");
+    
+  }
+  
+
+  
+  return ss;  
+  
+}
+
+
+
+
+
+
+function onEdit() {
+  
+  
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getActiveSheet();
+  var s3= ss.getSheetByName("Roster and Tracker");
+  var s2 = ss.getSheetByName("Indicators");
+  var sheetname = ScriptProperties.getProperty("sheetname");
+  
+  var activecell = sheet.getActiveCell();
+  var data = activecell.getValue();
+  
+  var lowtemp = ScriptProperties.getProperty("low");
+  var lowscore = parseInt(lowtemp);
+  
+  var hightemp = ScriptProperties.getProperty("high");
+  var highscore = parseInt(hightemp);
+  
+  var blackcol = ScriptProperties.getProperty("blackcolumn");
+  var blackcolumn = parseInt(blackcol);
+  
+  var col = activecell.getColumn();
+  var row = activecell.getRow();
+  
+  
+  
+   
+  //on edit for full name in roster and tracker  
+  if(sheet.getSheetName() == "Roster and Tracker")
+  {
+    
+    if ( col == 2 || col == 3)
+    {
+      sheet.getRange(row, 4).setValue(sheet.getRange(row,2).getValue()+" "+sheet.getRange(row,3).getValue());
+    }
+  }
+ 
+    else if(sheetname == sheet.getSheetName())
+  {
+    
+    if ( col>6 && col< blackcolumn-1 && row< sheet.getLastRow()+1)
+    {
+      if(data>lowscore && data<highscore)
+        sheet.getActiveCell().setBackground("Yellow").setFontColor("Black");
+      else if( data== lowscore)
+        sheet.getActiveCell().setBackground("Red").setFontColor("Black");
+      else if( data== highscore)
+        sheet.getActiveCell().setBackground("Green").setFontColor("Black");
+      else
+        sheet.getActiveCell().setBackground("Black").setFontColor("White");
+      
+      
+      
+      var inditocheck = sheet.getRange(3,col).getValue();
+      
+      for( i= blackcolumn+1; i< sheet.getLastColumn()+1; i++)
+      {
+        if( inditocheck == sheet.getRange(3, i).getValue() )
+        {
+          var requiredcol = i;
+        }
+      }
+      
+      
+      
+      //now you neeed to update only at (row,requiredcol) from (row,col) in add manual assessment tab
+      
+      var sum=0;
+      var total=0
+          for ( j= 7; j< blackcolumn-1; j++)
+          {
+            
+            if( sheet.getRange(3 , requiredcol).getValue() == sheet.getRange(3, j).getValue() )
+            {
+              sum = sum + sheet.getRange(row, j).getValue();
+              total = total+ highscore; 
+            }
+          }
+      var percent = (sum/total)*100;
+      sheet.getRange(row, requiredcol).setValue(percent+"%");
+      if(percent>=0 && percent<=33)
+        sheet.getRange(row, requiredcol).setBackgroundColor("Red").setFontColor("Black");
+      else if(percent>33 && percent<80)
+        sheet.getRange(row, requiredcol).setBackgroundColor("Yellow").setFontColor("Black");
+      else if(percent>=80 && percent<=100)
+        sheet.getRange(row, requiredcol).setBackgroundColor("Green").setFontColor("Black");
+      else
+        sheet.getRange(row, requiredcol).setBackgroundColor("Black").setFontColor("White");
+      //need to find out required row and required col for roster and tracker tab
+      // rrow = row+ 5
+      //for rcol = k     
+      var numchecked = ScriptProperties.getProperty("numchecked");  
+      var finalscore = (percent*s2.getRange("E5").getValue())/100;
+      var minimum = s2.getRange("E4").getValue();
+      for( k= s3.getLastColumn(); k> s3.getLastColumn()-numchecked; k--)
+        {
+          if( sheet.getRange(3,col).getValue() == s3.getRange(5, k).getValue() )
+          {
+            if(finalscore>=minimum)
+            {
+            s3.getRange(row+4, k).setValue(finalscore);
+            }
+            else
+            {
+              s3.getRange(row+4, k).setValue(minimum);
+            }
+            // var range = s3.getRange(8, k, s3.getLastRow()-7);  
+            var end= s3.getRange(s3.getLastRow(),k).getA1Notation();
+            var start = s3.getRange(8,k).getA1Notation();
+            
+            s3.getRange(7, k).setFormula("=average("+start+":"+end+")").setBackgroundColor("Blue").setFontColor("White");  
+          }
+        }  
+    }
+    
+    
+    
+    
+    
+    Utilities.sleep(500);
+  }
+  
+}
+
+
+function student()
+{
+  var ss= SpreadsheetApp.getActiveSpreadsheet();
+var s3= ss.getSheetByName("Roster and Tracker");
+  //add column  
+var data= Charts.newDataTable()
+    .addColumn(Charts.ColumnType.STRING, "Name")
+    .addColumn(Charts.ColumnType.STRING, "Unit")
+    .addColumn(Charts.ColumnType.STRING, "Tag")
+    .addColumn(Charts.ColumnType.STRING, "Indicator")
+    .addColumn(Charts.ColumnType.NUMBER, "Marks")
+    .addColumn(Charts.ColumnType.DATE, "Date");
+   // .addColumn(Charts.ColumnType.DATE, "Date");
+ // data.addRow(["Raghav","Unit1","Tag1","Indicator1",52]);
+ //  data.addRow(["Raghav1","Unit1","ag1","Indicator1",20]);
+  
+//add row
+  
+  for(var i=8;i<=s3.getLastRow();i++)
+  {
+    var name=s3.getRange(i, 2).getValue();
+    for(var j=8;j<=s3.getLastColumn();j++)
+    {
+      data.addRow([name, s3.getRange(2, j).getValue(), s3.getRange(1, j).getValue(), s3.getRange(5, j).getValue(), s3.getRange(i, j).getValue(), s3.getRange(4, j).getValue() ]);
+    }
+  }
+  
+//build  
+    
+    data.build();
+
+  var nameFilter = Charts.newCategoryFilter()
+      .setFilterColumnLabel("Name")
+      .build();
+  
+  var unitFilter = Charts.newCategoryFilter()
+      .setFilterColumnLabel("Unit")
+      .build();
+  
+  var tagFilter = Charts.newCategoryFilter()
+      .setFilterColumnLabel("Tag")
+      .build();
+  
+  var indicatorFilter = Charts.newCategoryFilter()
+      .setFilterColumnLabel("Indicator")
+      .build();
+  
+     
+ // var dateFilter= Charts.newNumberRangeFilter()
+   //   .setFilterColumnLabel("Date")
+    //  .build();
+  
+  var chart = Charts.newColumnChart().setDataViewDefinition(Charts.newDataViewDefinition().setColumns([3,4])).build();
+  
+
+  var tableChart = Charts.newTableChart()
+      .build();
+  
+  var dashboard= Charts.newDashboardPanel().setDataTable(data).bind([nameFilter, unitFilter, tagFilter, indicatorFilter], [chart, tableChart]).build();
+  
+  
+  var uiApp = UiApp.createApplication().setWidth(1200).setHeight(600);
+
+  dashboard.add(uiApp.createVerticalPanel()
+                .add(uiApp.createHorizontalPanel()
+                    .add(nameFilter).add(unitFilter).add(tagFilter).add(indicatorFilter)
+                    .setSpacing(20))
+                .add(uiApp.createHorizontalPanel()
+                    .add(chart).add(tableChart)
+                    .setSpacing(10)));
+
+  uiApp.add(dashboard);
+  
+  ss.show(uiApp);
+  return uiApp;
+}
+
+
+function Indicator()
+{
+  
+  var ss= SpreadsheetApp.getActiveSpreadsheet();
+
+  ss.getSheetByName("Comparison Report").activate();
+  
+  
+}
+
+
+function AboutProject() {
+  Browser.msgBox("This Project was part of the 2012 Google Summer of Code under New Visions For Public School in collaboration with Teaching Matters.");
+  
+}
+
+
+
+
+
+
+
+//function to find number of tags
+function getFirstEmptyRowTags() {
+  var spr = SpreadsheetApp.getActiveSpreadsheet();
+  var s2 = spr.getSheetByName("Indicators");
+  var column = s2.getRange('I:I');
+  var values = column.getValues(); // get all data in one call
+  var ct = 0;
+  while ( values[ct][0] != "" ) {
+    ct++;
+  }
+  return (ct);
+}
+
+//function to find number of units
+function getFirstEmptyRowUnits() {
+  var spr = SpreadsheetApp.getActiveSpreadsheet();
+  var s2 = spr.getSheetByName("Indicators");
+  var column = s2.getRange('G:G');
+  var values = column.getValues(); // get all data in one call
+  var ct = 0;
+  while ( values[ct][0] != "" ) {
+    ct++;
+  }
+  return (ct);
+}
+
+//function to find number of indicators
+function getFirstEmptyRowIndicators() {
+  var spr = SpreadsheetApp.getActiveSpreadsheet();
+  var s2 = spr.getSheetByName("Indicators");
+  var column = s2.getRange('B:B');
+  var values = column.getValues(); // get all data in one call
+  var ct = 0;
+  while ( values[ct][0] != "" ) {
+    ct++;
+  }
+  return (ct);
+}
+
+
+function removeNL(s){ 
+  return s.replace(/[\n\r\t]/g,""); 
+}
+
+
